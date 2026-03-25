@@ -209,7 +209,6 @@
     transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Correct pulse */
   .tile.correct-pulse {
     animation: correctPulse 0.6s ease;
   }
@@ -228,10 +227,7 @@
     75% { transform: translateX(-3px) rotateY(180deg); }
   }
 
-  /* Empty grid slot */
-  .tile.empty-slot {
-    visibility: hidden;
-  }
+  .tile.empty-slot { visibility: hidden; }
 
   /* ====== FOUND WORDS DISPLAY ====== */
   .found-section {
@@ -403,6 +399,18 @@
     text-shadow: 0 0 30px rgba(212, 168, 67, 0.4);
     animation: celebrationZoom 0.4s ease;
   }
+
+  /* ====== WRONG FLASH ====== */
+  .wrong-flash {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 45;
+    background: rgba(231, 76, 60, 0.15);
+    animation: wrongFlashAnim 0.4s ease forwards;
+  }
+  @keyframes wrongFlashAnim {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
 </style>
 </head>
 <body>
@@ -416,23 +424,19 @@
 
 <!-- GAME SCREEN -->
 <div class="game-screen" id="gameScreen">
-  <!-- Header -->
   <div class="game-header">
     <div class="game-title">Where's the Verse</div>
     <div class="verse-reference" id="verseRef"></div>
   </div>
 
-  <!-- Tile Grid -->
   <div class="tile-area">
     <div class="tile-grid" id="tileGrid"></div>
   </div>
 
-  <!-- Found Words -->
   <div class="found-section">
     <div class="found-words-display" id="foundWords"></div>
   </div>
 
-  <!-- Player Bar -->
   <div class="player-bar" id="playerBar"></div>
 </div>
 
@@ -462,6 +466,55 @@ let tileElements = {};
 const channel = new BroadcastChannel('wheres-the-verse');
 
 // ============================================================
+// SOUND EFFECTS (display side for audience)
+// ============================================================
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+function playSound(type) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'correct') {
+      osc.frequency.setValueAtTime(523, ctx.currentTime);
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    } else if (type === 'wrong') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200, ctx.currentTime);
+      osc.frequency.setValueAtTime(150, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } else if (type === 'celebration') {
+      [523, 659, 784, 1047].forEach((freq, i) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
+        g.gain.setValueAtTime(0.12, ctx.currentTime + i * 0.12);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.4);
+        o.start(ctx.currentTime + i * 0.12);
+        o.stop(ctx.currentTime + i * 0.12 + 0.4);
+      });
+    }
+  } catch (e) { /* audio not available */ }
+}
+
+// ============================================================
 // CHANNEL LISTENER
 // ============================================================
 channel.onmessage = (e) => {
@@ -481,10 +534,13 @@ channel.onmessage = (e) => {
       displayState = msg.state;
       animateCorrectPick(msg.tileIndex);
       updateFoundWords();
+      playSound('correct');
       break;
 
     case 'wrong_pick':
       animateWrongPick(msg.tileIndex, msg.revealedWord);
+      showWrongFlash();
+      playSound('wrong');
       break;
 
     case 'reset_tiles':
@@ -496,9 +552,11 @@ channel.onmessage = (e) => {
     case 'verse_complete':
       displayState = msg.state;
       animateCorrectPick(msg.tileIndex);
+      playSound('correct');
       setTimeout(() => {
         updatePlayers();
         showCelebration(msg.playerIndex);
+        playSound('celebration');
       }, 800);
       break;
 
@@ -517,6 +575,14 @@ channel.onmessage = (e) => {
       break;
   }
 };
+
+// ============================================================
+// REQUEST SYNC ON LOAD
+// ============================================================
+// When display opens or refreshes, ask operator for current state
+setTimeout(() => {
+  channel.postMessage({ type: 'request_sync' });
+}, 300);
 
 // ============================================================
 // SCREENS
@@ -539,7 +605,6 @@ function buildTileGrid() {
   const grid = document.getElementById('tileGrid');
   const { gridRows, gridCols, tiles } = displayState;
 
-  // Calculate tile size based on viewport
   const availW = window.innerWidth - 80;
   const availH = window.innerHeight - 300;
   const maxTileW = Math.floor(availW / gridCols) - 16;
@@ -550,7 +615,6 @@ function buildTileGrid() {
   grid.style.gridTemplateColumns = `repeat(${gridCols}, ${tileW}px)`;
   grid.style.gridTemplateRows = `repeat(${gridRows}, ${tileH}px)`;
 
-  // Create slot map
   const slots = Array(gridRows * gridCols).fill(null);
   tiles.forEach(t => { slots[t.row * gridCols + t.col] = t; });
 
@@ -573,7 +637,6 @@ function buildTileGrid() {
     </div>`;
   }).join('');
 
-  // Store references
   tiles.forEach(t => {
     tileElements[t.id] = document.getElementById('tile-' + t.id);
   });
@@ -589,7 +652,6 @@ function animateCorrectPick(tileId) {
   el.classList.add('flipped', 'found', 'correct-pulse');
   setTimeout(() => el.classList.remove('correct-pulse'), 600);
 
-  // Update display state tile
   const tile = displayState.tiles.find(t => t.id === tileId);
   if (tile) tile.state = 'found';
 
@@ -600,16 +662,13 @@ function animateWrongPick(tileId, word) {
   const el = tileElements[tileId];
   if (!el) return;
 
-  // Update the word on the tile front in case needed
   const wordEl = el.querySelector('.tile-word');
   if (wordEl) wordEl.textContent = word;
 
-  // Flip to show wrong word
   el.classList.add('flipped', 'wrong');
 }
 
 function animateResetTiles() {
-  // Cascade flip-back all visible tiles
   const visibleTiles = Object.values(tileElements).filter(
     el => el.classList.contains('flipped')
   );
@@ -636,6 +695,13 @@ function showTurnFlash(text) {
   setTimeout(() => flash.classList.remove('active'), 1500);
 }
 
+function showWrongFlash() {
+  const el = document.createElement('div');
+  el.className = 'wrong-flash';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 500);
+}
+
 // ============================================================
 // CELEBRATION
 // ============================================================
@@ -644,10 +710,10 @@ function showCelebration(playerIndex) {
   document.getElementById('celebrationTitle').textContent = 'Verse Complete!';
   document.getElementById('celebrationSub').textContent = player.name + ' found the verse!';
 
-  // Show the complete verse
-  const verseText = displayState.foundWords.join(' ');
+  // Show the complete verse text
+  const verseText = displayState.verseText || displayState.foundWords.join(' ');
   document.getElementById('celebrationVerse').textContent =
-    displayState.verseReference + ' — ' + verseText;
+    displayState.verseReference + ' \u2014 ' + verseText;
 
   document.getElementById('celebrationOverlay').classList.add('active');
   launchConfetti();
@@ -719,11 +785,9 @@ function esc(s) {
   return d.innerHTML;
 }
 
-// Resize handler
 window.addEventListener('resize', () => {
   if (displayState && displayState.tiles.length > 0) {
     buildTileGrid();
-    // Re-apply states
     displayState.tiles.forEach(t => {
       const el = tileElements[t.id];
       if (el && t.state === 'found') {

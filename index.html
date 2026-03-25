@@ -35,6 +35,8 @@
   .btn-red:hover { background: #c43c3c; }
   .btn-green { background: #2d8a4e; color: white; }
   .btn-green:hover { background: #38a55e; }
+  .btn-orange { background: #c97a20; color: white; }
+  .btn-orange:hover { background: #d98a30; }
   .btn-sm { padding: 5px 10px; font-size: 12px; }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
@@ -140,14 +142,43 @@
   .import-section textarea { font-size: 11px; min-height: 60px; }
 
   .empty-msg { color: #556; font-style: italic; font-size: 12px; padding: 10px; text-align: center; }
+
+  /* Toast notifications */
+  .toast-container {
+    position: fixed; top: 12px; right: 12px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    padding: 10px 16px; border-radius: 8px; font-size: 13px;
+    font-weight: 600; color: white; min-width: 200px;
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  }
+  .toast.success { background: #2d8a4e; }
+  .toast.error { background: #a53333; }
+  .toast.info { background: #2d6aa5; }
+  @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+  /* Keyboard hint */
+  .key-hint {
+    position: absolute; bottom: 3px; right: 6px;
+    font-size: 9px; color: #445; font-weight: 400;
+  }
 </style>
 </head>
 <body>
+
+<div class="toast-container" id="toastContainer"></div>
 
 <div class="top-bar">
   <h1>Where's the Verse</h1>
   <span style="color:#556;font-size:12px;">Operator Panel</span>
   <div class="spacer"></div>
+  <label class="toggle" style="color:#888;">
+    <input type="checkbox" id="soundToggle" checked onchange="toggleSound()">
+    Sound
+  </label>
   <button class="btn btn-gold" onclick="openDisplayWindow()">Open Display Window</button>
 </div>
 
@@ -201,6 +232,7 @@
           <input type="text" id="player2Name" value="Player 2">
         </div>
         <button class="btn btn-green" id="startBtn" onclick="startRound()">Start Round</button>
+        <button class="btn btn-orange btn-sm" id="passBtn" onclick="passTurn()" style="display:none;">Pass Turn</button>
         <button class="btn btn-red btn-sm" onclick="resetGame()">Reset</button>
       </div>
     </div>
@@ -228,17 +260,86 @@
         <div class="empty-msg">Select a verse and click Start Round to begin</div>
       </div>
       <div class="found-words-bar" id="foundWordsBar"></div>
+      <div style="margin-top:6px;font-size:11px;color:#445;text-align:center;" id="keyHintBar"></div>
     </div>
   </div>
 </div>
 
 <script>
 // ============================================================
+// TOAST NOTIFICATIONS (replaces alert())
+// ============================================================
+function toast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = message;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ============================================================
+// SOUND EFFECTS
+// ============================================================
+let soundEnabled = true;
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+function toggleSound() {
+  soundEnabled = document.getElementById('soundToggle').checked;
+}
+
+function playSound(type) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'correct') {
+      osc.frequency.setValueAtTime(523, ctx.currentTime); // C5
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1); // E5
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    } else if (type === 'wrong') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200, ctx.currentTime);
+      osc.frequency.setValueAtTime(150, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } else if (type === 'celebration') {
+      // Ascending arpeggio
+      [523, 659, 784, 1047].forEach((freq, i) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
+        g.gain.setValueAtTime(0.12, ctx.currentTime + i * 0.12);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.4);
+        o.start(ctx.currentTime + i * 0.12);
+        o.stop(ctx.currentTime + i * 0.12 + 0.4);
+      });
+    }
+  } catch (e) { /* audio not available */ }
+}
+
+// ============================================================
 // GAME STATE
 // ============================================================
 let verses = JSON.parse(localStorage.getItem('wtv_verses') || '[]');
 let gameState = {
-  phase: 'idle', // idle, playing, celebration, paused
+  phase: 'idle', // idle, playing, celebration
   verse: null,
   words: [],
   tiles: [],
@@ -248,10 +349,19 @@ let gameState = {
   foundWords: [],
   players: [{ name: 'Player 1', score: 0 }, { name: 'Player 2', score: 0 }],
   currentPlayerIndex: 0,
-  locked: false // prevent clicks during animations
+  locked: false
 };
 
 const channel = new BroadcastChannel('wheres-the-verse');
+
+// Listen for display requesting sync
+channel.onmessage = (e) => {
+  if (e.data.type === 'request_sync') {
+    if (gameState.phase !== 'idle') {
+      channel.postMessage({ type: 'new_round', state: getDisplayState() });
+    }
+  }
+};
 
 // ============================================================
 // VERSE MANAGEMENT
@@ -265,20 +375,24 @@ function saveVerses() {
 function addVerse() {
   const ref = document.getElementById('verseRef').value.trim();
   const text = document.getElementById('verseText').value.trim();
-  if (!ref || !text) return alert('Please enter both reference and verse text.');
+  if (!ref || !text) return toast('Please enter both reference and verse text.', 'error');
   const words = text.split(/\s+/).filter(w => w);
-  if (words.length < 3) return alert('Verse must have at least 3 words.');
-  if (words.length > 25) return alert('Verse should have 25 words or fewer for best gameplay.');
+  if (words.length < 3) return toast('Verse must have at least 3 words.', 'error');
+  if (words.length > 25) return toast('Verse should have 25 words or fewer for best gameplay.', 'error');
   verses.push({ id: Date.now(), reference: ref, text: text });
   saveVerses();
   document.getElementById('verseRef').value = '';
   document.getElementById('verseText').value = '';
   document.getElementById('wordCount').textContent = '';
+  toast(`Added "${ref}" (${words.length} words)`, 'success');
 }
 
 function deleteVerse(id) {
+  const verse = verses.find(v => v.id === id);
+  if (!verse) return;
   verses = verses.filter(v => v.id !== id);
   saveVerses();
+  toast(`Deleted "${verse.reference}"`, 'info');
 }
 
 function bulkImportVerses() {
@@ -301,9 +415,9 @@ function bulkImportVerses() {
   if (added > 0) {
     saveVerses();
     document.getElementById('bulkImport').value = '';
-    alert(`Imported ${added} verse(s).`);
+    toast(`Imported ${added} verse(s)`, 'success');
   } else {
-    alert('No valid verses found. Use format: Reference | Verse text');
+    toast('No valid verses found. Use format: Reference | Verse text', 'error');
   }
 }
 
@@ -338,7 +452,6 @@ function renderVerseSelect() {
 // GRID HELPERS
 // ============================================================
 function getGridDimensions(count) {
-  // Target 2-4 rows for good display proportions
   if (count <= 6) return { rows: 2, cols: Math.ceil(count / 2) };
   if (count <= 12) return { rows: 3, cols: Math.ceil(count / 3) };
   if (count <= 20) return { rows: 4, cols: Math.ceil(count / 4) };
@@ -360,12 +473,11 @@ function shuffle(arr) {
 function startRound() {
   const verseId = parseInt(document.getElementById('verseSelect').value);
   const verse = verses.find(v => v.id === verseId);
-  if (!verse) return alert('Please select a verse.');
+  if (!verse) return toast('Please select a verse first.', 'error');
 
   const words = verse.text.split(/\s+/).filter(w => w);
   const { rows, cols } = getGridDimensions(words.length);
 
-  // Create tiles with shuffled positions
   const positions = [];
   for (let r = 0; r < rows; r++)
     for (let c = 0; c < cols; c++)
@@ -378,7 +490,7 @@ function startRound() {
     wordIndex: i,
     row: shuffledPositions[i].row,
     col: shuffledPositions[i].col,
-    state: 'hidden' // hidden, found, revealed (wrong)
+    state: 'hidden'
   }));
 
   gameState.phase = 'playing';
@@ -394,8 +506,9 @@ function startRound() {
   gameState.players[0].name = document.getElementById('player1Name').value || 'Player 1';
   gameState.players[1].name = document.getElementById('player2Name').value || 'Player 2';
 
+  document.getElementById('passBtn').style.display = '';
   renderGame();
-  broadcastNewRound();
+  channel.postMessage({ type: 'new_round', state: getDisplayState() });
 }
 
 function resetGame() {
@@ -406,8 +519,25 @@ function resetGame() {
   gameState.players[0].score = 0;
   gameState.players[1].score = 0;
   gameState.locked = false;
+  document.getElementById('passBtn').style.display = 'none';
   renderGame();
   channel.postMessage({ type: 'reset' });
+}
+
+function passTurn() {
+  if (gameState.phase !== 'playing' || gameState.locked) return;
+
+  // Reset verse progress and switch player
+  gameState.tiles.forEach(t => {
+    if (t.state === 'found') t.state = 'hidden';
+  });
+  gameState.foundWords = [];
+  gameState.currentWordIndex = 0;
+  gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % 2;
+  renderGame();
+
+  channel.postMessage({ type: 'reset_tiles', state: getDisplayState() });
+  toast(`Passed to ${gameState.players[gameState.currentPlayerIndex].name}`, 'info');
 }
 
 function onTileClick(tileId) {
@@ -423,11 +553,13 @@ function onTileClick(tileId) {
     tile.state = 'found';
     gameState.foundWords.push(tile.word);
     gameState.currentWordIndex++;
+    playSound('correct');
 
     if (gameState.currentWordIndex >= gameState.words.length) {
       // VERSE COMPLETE
       gameState.players[gameState.currentPlayerIndex].score++;
       gameState.phase = 'celebration';
+      playSound('celebration');
       renderGame();
       channel.postMessage({
         type: 'verse_complete',
@@ -448,16 +580,15 @@ function onTileClick(tileId) {
     // WRONG
     gameState.locked = true;
     tile.state = 'revealed';
+    playSound('wrong');
     renderGame();
 
-    // Send wrong pick to display (it will animate)
     channel.postMessage({
       type: 'wrong_pick',
       tileIndex: tile.id,
       revealedWord: tile.word
     });
 
-    // After delay, reset
     setTimeout(() => {
       gameState.tiles.forEach(t => {
         if (t.state === 'found' || t.state === 'revealed') t.state = 'hidden';
@@ -478,7 +609,10 @@ function onTileClick(tileId) {
 
 function nextRound() {
   gameState.phase = 'idle';
+  document.getElementById('passBtn').style.display = 'none';
   renderGame();
+  // Tell display to go back to waiting
+  channel.postMessage({ type: 'reset' });
 }
 
 // ============================================================
@@ -488,6 +622,7 @@ function getDisplayState() {
   return {
     phase: gameState.phase,
     verseReference: gameState.verse ? gameState.verse.reference : '',
+    verseText: gameState.verse ? gameState.verse.text : '',
     tiles: gameState.tiles.map(t => ({
       id: t.id, word: t.word, row: t.row, col: t.col, state: t.state
     })),
@@ -501,18 +636,14 @@ function getDisplayState() {
   };
 }
 
-function broadcastNewRound() {
-  channel.postMessage({ type: 'new_round', state: getDisplayState() });
-}
-
 // ============================================================
 // RENDER
 // ============================================================
 function renderGame() {
   const grid = document.getElementById('tileGrid');
-  const status = document.getElementById('statusBar');
   const refDisplay = document.getElementById('verseRefDisplay');
   const foundBar = document.getElementById('foundWordsBar');
+  const keyHint = document.getElementById('keyHintBar');
 
   if (gameState.phase === 'idle' || gameState.tiles.length === 0) {
     grid.innerHTML = '<div class="empty-msg">Select a verse and click Start Round to begin</div>';
@@ -522,6 +653,7 @@ function renderGame() {
     document.getElementById('statusProgress').textContent = '';
     refDisplay.textContent = '';
     foundBar.innerHTML = '';
+    keyHint.textContent = '';
     return;
   }
 
@@ -546,11 +678,14 @@ function renderGame() {
   grid.style.gridTemplateColumns = `repeat(${gameState.gridCols}, 1fr)`;
   grid.style.maxWidth = `${gameState.gridCols * 130}px`;
 
-  // Build grid slots
   const slots = Array(gameState.gridRows * gameState.gridCols).fill(null);
   gameState.tiles.forEach(t => {
     slots[t.row * gameState.gridCols + t.col] = t;
   });
+
+  // Build keyboard shortcut map (1-9, 0 for 10, then a-z)
+  let keyIndex = 0;
+  const keyLabels = '1234567890abcdefghijklmnop'.split('');
 
   grid.innerHTML = slots.map((tile, i) => {
     if (!tile) return '<div></div>';
@@ -558,10 +693,14 @@ function renderGame() {
                        tile.state === 'revealed' ? 'wrong-tile' : 'hidden-tile';
     const disabled = gameState.phase !== 'playing' || tile.state === 'found' ? 'disabled' : '';
     const wordDisplay = tile.state !== 'hidden' ? esc(tile.word) : '';
-    return `<div class="op-tile ${stateClass} ${disabled}" onclick="onTileClick(${tile.id})">
+    const key = keyLabels[keyIndex] || '';
+    tile._keyLabel = key;
+    keyIndex++;
+    return `<div class="op-tile ${stateClass} ${disabled}" onclick="onTileClick(${tile.id})" data-key="${key}">
       <span class="tile-num">${tile.id + 1}</span>
       <span class="tile-word">${wordDisplay || '?'}</span>
       <span class="tile-answer">${esc(tile.word)}</span>
+      <span class="key-hint">${key}</span>
     </div>`;
   }).join('');
 
@@ -578,12 +717,32 @@ function renderGame() {
     }
     return `<span class="blank-word">____</span>`;
   }).join(' ');
+
+  // Keyboard hint
+  keyHint.textContent = gameState.phase === 'playing' ? 'Press a key (1-9, 0, a-z) to flip that tile' : '';
 }
 
 function toggleAnswers() {
   const checked = document.getElementById('showAnswers').checked;
   document.getElementById('gamePanel').classList.toggle('show-answers', checked);
 }
+
+// ============================================================
+// KEYBOARD SHORTCUTS
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  if (gameState.phase !== 'playing' || gameState.locked) return;
+  // Don't capture when typing in inputs
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+  const key = e.key.toLowerCase();
+  const tileEl = document.querySelector(`.op-tile[data-key="${key}"]`);
+  if (tileEl && !tileEl.classList.contains('disabled')) {
+    // Find the tile id from the onclick
+    const tileId = parseInt(tileEl.getAttribute('onclick').match(/\d+/)[0]);
+    onTileClick(tileId);
+  }
+});
 
 // ============================================================
 // DISPLAY WINDOW
@@ -596,12 +755,7 @@ function openDisplayWindow() {
   }
   displayWindow = window.open('display.html', 'WTVDisplay',
     'width=1280,height=720,menubar=no,toolbar=no');
-  // Send current state after display loads
-  setTimeout(() => {
-    if (gameState.phase !== 'idle') {
-      channel.postMessage({ type: 'new_round', state: getDisplayState() });
-    }
-  }, 1000);
+  // The display will request sync when it loads - no fragile timeout needed
 }
 
 // ============================================================
