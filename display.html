@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Where's the Verse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Lora:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #070b1a;
+    --bg-mid: #0d1333;
+    --gold: #d4a843;
+    --gold-light: #f0d078;
+    --gold-dark: #a07a20;
+    --tile-back: #152040;
+    --tile-border: #2a4070;
+    --tile-front: #f5f0e1;
+    --correct: #4caf50;
+    --correct-glow: #2d8a4e;
+    --wrong: #e74c3c;
+    --text: #e8e4dc;
+    --text-dim: #6a7a9a;
+    --player-active: #d4a843;
+    --player-inactive: #3a4a6a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text);
+    height: 100vh; width: 100vw;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    user-select: none;
+  }
+
+  /* ====== BACKGROUND ====== */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 30%, rgba(30, 50, 100, 0.4), transparent),
+      radial-gradient(ellipse 60% 50% at 20% 80%, rgba(100, 60, 20, 0.15), transparent),
+      radial-gradient(ellipse 60% 50% at 80% 80%, rgba(100, 60, 20, 0.15), transparent);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ====== WAITING SCREEN ====== */
+  .waiting-screen {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    position: relative; z-index: 1;
+  }
+  .waiting-screen h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(48px, 8vw, 96px);
+    font-weight: 900;
+    color: var(--gold);
+    text-shadow: 0 0 40px rgba(212, 168, 67, 0.3), 0 4px 12px rgba(0,0,0,0.5);
+    letter-spacing: 2px;
+    text-align: center;
+  }
+  .waiting-screen p {
+    font-family: 'Lora', serif;
+    font-size: clamp(16px, 2.5vw, 28px);
+    color: var(--text-dim);
+    margin-top: 16px;
+    font-style: italic;
+  }
+  .cross-watermark {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 300px; opacity: 0.03;
+    color: var(--gold); pointer-events: none;
+  }
+
+  /* ====== GAME SCREEN ====== */
+  .game-screen {
+    flex: 1; display: none; flex-direction: column;
+    position: relative; z-index: 1;
+    padding: 20px 30px;
+  }
+  .game-screen.active { display: flex; }
+
+  /* ====== HEADER ====== */
+  .game-header {
+    text-align: center;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+  }
+  .game-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(24px, 3.5vw, 44px);
+    font-weight: 900;
+    color: var(--gold);
+    text-shadow: 0 0 30px rgba(212, 168, 67, 0.25), 0 2px 8px rgba(0,0,0,0.4);
+    letter-spacing: 1px;
+  }
+  .verse-reference {
+    font-family: 'Lora', serif;
+    font-size: clamp(16px, 2vw, 26px);
+    color: var(--text-dim);
+    margin-top: 2px;
+    font-style: italic;
+  }
+
+  /* ====== TILE GRID ====== */
+  .tile-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 0;
+    min-height: 0;
+  }
+  .tile-grid {
+    display: grid;
+    gap: clamp(8px, 1.5vw, 16px);
+    justify-content: center;
+    perspective: 1200px;
+  }
+
+  /* ====== INDIVIDUAL TILE ====== */
+  .tile {
+    position: relative;
+    border-radius: 12px;
+    cursor: default;
+    transition: transform 0.15s ease;
+  }
+  .tile-inner {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .tile.flipped .tile-inner {
+    transform: rotateY(180deg);
+  }
+
+  .tile-face {
+    position: absolute; inset: 0;
+    backface-visibility: hidden;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+
+  /* Tile Back */
+  .tile-back {
+    background: linear-gradient(145deg, #1a2d55, #0f1d3a);
+    border: 2px solid var(--tile-border);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+    overflow: hidden;
+  }
+  .tile-back::before {
+    content: '';
+    position: absolute; inset: 6px;
+    border: 1px solid rgba(212, 168, 67, 0.15);
+    border-radius: 8px;
+  }
+  .tile-back::after {
+    content: '\u2720';
+    font-size: clamp(28px, 4vw, 56px);
+    color: rgba(212, 168, 67, 0.12);
+  }
+  .tile-number {
+    position: absolute; bottom: 5px; right: 8px;
+    font-size: clamp(9px, 1vw, 13px);
+    color: rgba(212, 168, 67, 0.2);
+    font-weight: 600;
+  }
+
+  /* Tile Front */
+  .tile-front {
+    background: linear-gradient(145deg, #f8f3e6, #ede5d0);
+    border: 2px solid var(--gold-dark);
+    transform: rotateY(180deg);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    padding: 8px;
+  }
+  .tile-word {
+    font-family: 'Lora', serif;
+    font-size: clamp(16px, 2.5vw, 36px);
+    font-weight: 700;
+    color: #2a1f0a;
+    text-align: center;
+    word-break: break-word;
+    line-height: 1.2;
+  }
+
+  /* Tile States */
+  .tile.found .tile-front {
+    border-color: var(--correct);
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.4), 0 0 40px rgba(76, 175, 80, 0.15);
+  }
+  .tile.found .tile-word { color: #1a5a2a; }
+
+  .tile.wrong .tile-front {
+    border-color: var(--wrong);
+    box-shadow: 0 0 20px rgba(231, 76, 60, 0.5), 0 0 40px rgba(231, 76, 60, 0.2);
+    animation: wrongShake 0.5s ease;
+  }
+  .tile.wrong .tile-word { color: #8b1a1a; }
+
+  .tile.flip-back .tile-inner {
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Correct pulse */
+  .tile.correct-pulse {
+    animation: correctPulse 0.6s ease;
+  }
+
+  @keyframes correctPulse {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+  @keyframes wrongShake {
+    0%, 100% { transform: translateX(0) rotateY(180deg); }
+    15% { transform: translateX(-8px) rotateY(180deg); }
+    30% { transform: translateX(8px) rotateY(180deg); }
+    45% { transform: translateX(-6px) rotateY(180deg); }
+    60% { transform: translateX(6px) rotateY(180deg); }
+    75% { transform: translateX(-3px) rotateY(180deg); }
+  }
+
+  /* Empty grid slot */
+  .tile.empty-slot {
+    visibility: hidden;
+  }
+
+  /* ====== FOUND WORDS DISPLAY ====== */
+  .found-section {
+    flex-shrink: 0;
+    text-align: center;
+    padding: 10px 20px;
+  }
+  .found-words-display {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    align-items: center;
+  }
+  .fw-word {
+    font-family: 'Lora', serif;
+    font-size: clamp(16px, 2vw, 26px);
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 8px;
+    transition: all 0.4s ease;
+  }
+  .fw-word.found {
+    background: rgba(76, 175, 80, 0.2);
+    color: #8fdf8f;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    animation: wordAppear 0.4s ease;
+  }
+  .fw-word.blank {
+    background: rgba(30, 58, 95, 0.4);
+    color: var(--text-dim);
+    border: 1px solid rgba(42, 64, 112, 0.3);
+    min-width: 50px;
+  }
+  .fw-word.blank::after { content: '\u00B7\u00B7\u00B7\u00B7'; }
+  @keyframes wordAppear {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ====== PLAYER BAR ====== */
+  .player-bar {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    gap: clamp(20px, 5vw, 80px);
+    padding: 12px 20px;
+  }
+  .player-panel {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 24px;
+    border-radius: 12px;
+    border: 2px solid var(--player-inactive);
+    background: rgba(15, 25, 50, 0.6);
+    transition: all 0.4s ease;
+    min-width: 200px;
+  }
+  .player-panel.active {
+    border-color: var(--player-active);
+    background: rgba(212, 168, 67, 0.08);
+    box-shadow: 0 0 20px rgba(212, 168, 67, 0.15);
+  }
+  .player-indicator {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--player-inactive);
+    transition: all 0.4s ease;
+  }
+  .player-panel.active .player-indicator {
+    background: var(--gold);
+    box-shadow: 0 0 10px rgba(212, 168, 67, 0.6);
+    animation: indicatorPulse 1.5s ease infinite;
+  }
+  @keyframes indicatorPulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(212, 168, 67, 0.6); }
+    50% { box-shadow: 0 0 20px rgba(212, 168, 67, 0.9); }
+  }
+  .player-name {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(16px, 2vw, 24px);
+    font-weight: 700;
+    color: var(--text);
+  }
+  .player-panel.active .player-name { color: var(--gold-light); }
+  .player-score {
+    font-size: clamp(28px, 3.5vw, 48px);
+    font-weight: 900;
+    color: var(--text-dim);
+    margin-left: auto;
+    font-family: 'Playfair Display', serif;
+  }
+  .player-panel.active .player-score { color: var(--gold); }
+
+  /* ====== CELEBRATION OVERLAY ====== */
+  .celebration-overlay {
+    position: fixed; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 100;
+    background: rgba(7, 11, 26, 0.85);
+    animation: fadeIn 0.4s ease;
+  }
+  .celebration-overlay.active { display: flex; }
+  .celebration-content {
+    text-align: center;
+    animation: celebrationZoom 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .celebration-content h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(36px, 6vw, 80px);
+    font-weight: 900;
+    color: var(--gold);
+    text-shadow: 0 0 40px rgba(212, 168, 67, 0.5), 0 4px 12px rgba(0,0,0,0.5);
+    margin-bottom: 10px;
+  }
+  .celebration-content p {
+    font-family: 'Lora', serif;
+    font-size: clamp(18px, 3vw, 36px);
+    color: var(--text);
+  }
+  .celebration-verse {
+    font-family: 'Lora', serif;
+    font-size: clamp(14px, 2vw, 22px);
+    color: var(--gold-light);
+    margin-top: 20px;
+    max-width: 700px;
+    line-height: 1.6;
+    font-style: italic;
+    opacity: 0.9;
+  }
+  @keyframes celebrationZoom {
+    0% { transform: scale(0.3); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+
+  /* ====== CONFETTI ====== */
+  .confetti-container {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 99;
+    overflow: hidden;
+  }
+  .confetti-piece {
+    position: absolute;
+    width: 10px; height: 20px;
+    top: -20px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* ====== TURN TRANSITION ====== */
+  .turn-flash {
+    position: fixed; inset: 0;
+    display: none; align-items: center; justify-content: center;
+    z-index: 50;
+    background: rgba(7, 11, 26, 0.7);
+    animation: fadeIn 0.2s ease;
+  }
+  .turn-flash.active { display: flex; }
+  .turn-flash h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 5vw, 60px);
+    color: var(--gold);
+    text-shadow: 0 0 30px rgba(212, 168, 67, 0.4);
+    animation: celebrationZoom 0.4s ease;
+  }
+</style>
+</head>
+<body>
+
+<!-- WAITING SCREEN -->
+<div class="waiting-screen" id="waitingScreen">
+  <div class="cross-watermark">&cross;</div>
+  <h1>Where's the Verse</h1>
+  <p>Waiting for the game to begin...</p>
+</div>
+
+<!-- GAME SCREEN -->
+<div class="game-screen" id="gameScreen">
+  <!-- Header -->
+  <div class="game-header">
+    <div class="game-title">Where's the Verse</div>
+    <div class="verse-reference" id="verseRef"></div>
+  </div>
+
+  <!-- Tile Grid -->
+  <div class="tile-area">
+    <div class="tile-grid" id="tileGrid"></div>
+  </div>
+
+  <!-- Found Words -->
+  <div class="found-section">
+    <div class="found-words-display" id="foundWords"></div>
+  </div>
+
+  <!-- Player Bar -->
+  <div class="player-bar" id="playerBar"></div>
+</div>
+
+<!-- Turn Transition -->
+<div class="turn-flash" id="turnFlash">
+  <h2 id="turnFlashText"></h2>
+</div>
+
+<!-- Celebration Overlay -->
+<div class="celebration-overlay" id="celebrationOverlay">
+  <div class="celebration-content">
+    <h2 id="celebrationTitle"></h2>
+    <p id="celebrationSub"></p>
+    <div class="celebration-verse" id="celebrationVerse"></div>
+  </div>
+</div>
+
+<!-- Confetti Container -->
+<div class="confetti-container" id="confettiContainer"></div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let displayState = null;
+let tileElements = {};
+const channel = new BroadcastChannel('wheres-the-verse');
+
+// ============================================================
+// CHANNEL LISTENER
+// ============================================================
+channel.onmessage = (e) => {
+  const msg = e.data;
+
+  switch (msg.type) {
+    case 'new_round':
+      hideCelebration();
+      displayState = msg.state;
+      showGameScreen();
+      buildTileGrid();
+      updateFoundWords();
+      updatePlayers();
+      break;
+
+    case 'correct_pick':
+      displayState = msg.state;
+      animateCorrectPick(msg.tileIndex);
+      updateFoundWords();
+      break;
+
+    case 'wrong_pick':
+      animateWrongPick(msg.tileIndex, msg.revealedWord);
+      break;
+
+    case 'reset_tiles':
+      displayState = msg.state;
+      animateResetTiles();
+      showTurnFlash(displayState.players[displayState.currentPlayerIndex].name + "'s Turn");
+      break;
+
+    case 'verse_complete':
+      displayState = msg.state;
+      animateCorrectPick(msg.tileIndex);
+      setTimeout(() => {
+        updatePlayers();
+        showCelebration(msg.playerIndex);
+      }, 800);
+      break;
+
+    case 'sync':
+      displayState = msg.state;
+      showGameScreen();
+      buildTileGrid();
+      updateFoundWords();
+      updatePlayers();
+      break;
+
+    case 'reset':
+      displayState = null;
+      showWaitingScreen();
+      hideCelebration();
+      break;
+  }
+};
+
+// ============================================================
+// SCREENS
+// ============================================================
+function showWaitingScreen() {
+  document.getElementById('waitingScreen').style.display = 'flex';
+  document.getElementById('gameScreen').classList.remove('active');
+}
+
+function showGameScreen() {
+  document.getElementById('waitingScreen').style.display = 'none';
+  document.getElementById('gameScreen').classList.add('active');
+  document.getElementById('verseRef').textContent = displayState.verseReference;
+}
+
+// ============================================================
+// TILE GRID
+// ============================================================
+function buildTileGrid() {
+  const grid = document.getElementById('tileGrid');
+  const { gridRows, gridCols, tiles } = displayState;
+
+  // Calculate tile size based on viewport
+  const availW = window.innerWidth - 80;
+  const availH = window.innerHeight - 300;
+  const maxTileW = Math.floor(availW / gridCols) - 16;
+  const maxTileH = Math.floor(availH / gridRows) - 16;
+  const tileW = Math.min(maxTileW, 200);
+  const tileH = Math.min(maxTileH, 140, tileW * 0.75);
+
+  grid.style.gridTemplateColumns = `repeat(${gridCols}, ${tileW}px)`;
+  grid.style.gridTemplateRows = `repeat(${gridRows}, ${tileH}px)`;
+
+  // Create slot map
+  const slots = Array(gridRows * gridCols).fill(null);
+  tiles.forEach(t => { slots[t.row * gridCols + t.col] = t; });
+
+  tileElements = {};
+
+  grid.innerHTML = slots.map((tile, i) => {
+    if (!tile) {
+      return '<div class="tile empty-slot"></div>';
+    }
+    const flipped = tile.state === 'found' ? 'flipped found' : '';
+    return `<div class="tile ${flipped}" id="tile-${tile.id}" data-id="${tile.id}">
+      <div class="tile-inner">
+        <div class="tile-face tile-back">
+          <span class="tile-number">${tile.id + 1}</span>
+        </div>
+        <div class="tile-face tile-front">
+          <span class="tile-word">${esc(tile.word)}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Store references
+  tiles.forEach(t => {
+    tileElements[t.id] = document.getElementById('tile-' + t.id);
+  });
+}
+
+// ============================================================
+// ANIMATIONS
+// ============================================================
+function animateCorrectPick(tileId) {
+  const el = tileElements[tileId];
+  if (!el) return;
+
+  el.classList.add('flipped', 'found', 'correct-pulse');
+  setTimeout(() => el.classList.remove('correct-pulse'), 600);
+
+  // Update display state tile
+  const tile = displayState.tiles.find(t => t.id === tileId);
+  if (tile) tile.state = 'found';
+
+  updateFoundWords();
+}
+
+function animateWrongPick(tileId, word) {
+  const el = tileElements[tileId];
+  if (!el) return;
+
+  // Update the word on the tile front in case needed
+  const wordEl = el.querySelector('.tile-word');
+  if (wordEl) wordEl.textContent = word;
+
+  // Flip to show wrong word
+  el.classList.add('flipped', 'wrong');
+}
+
+function animateResetTiles() {
+  // Cascade flip-back all visible tiles
+  const visibleTiles = Object.values(tileElements).filter(
+    el => el.classList.contains('flipped')
+  );
+
+  visibleTiles.forEach((el, i) => {
+    setTimeout(() => {
+      el.classList.add('flip-back');
+      el.classList.remove('flipped', 'found', 'wrong');
+      setTimeout(() => el.classList.remove('flip-back'), 600);
+    }, i * 80);
+  });
+
+  setTimeout(() => {
+    updateFoundWords();
+    updatePlayers();
+  }, visibleTiles.length * 80 + 100);
+}
+
+function showTurnFlash(text) {
+  const flash = document.getElementById('turnFlash');
+  const flashText = document.getElementById('turnFlashText');
+  flashText.textContent = text;
+  flash.classList.add('active');
+  setTimeout(() => flash.classList.remove('active'), 1500);
+}
+
+// ============================================================
+// CELEBRATION
+// ============================================================
+function showCelebration(playerIndex) {
+  const player = displayState.players[playerIndex];
+  document.getElementById('celebrationTitle').textContent = 'Verse Complete!';
+  document.getElementById('celebrationSub').textContent = player.name + ' found the verse!';
+
+  // Show the complete verse
+  const verseText = displayState.foundWords.join(' ');
+  document.getElementById('celebrationVerse').textContent =
+    displayState.verseReference + ' — ' + verseText;
+
+  document.getElementById('celebrationOverlay').classList.add('active');
+  launchConfetti();
+}
+
+function hideCelebration() {
+  document.getElementById('celebrationOverlay').classList.remove('active');
+  document.getElementById('confettiContainer').innerHTML = '';
+}
+
+function launchConfetti() {
+  const container = document.getElementById('confettiContainer');
+  container.innerHTML = '';
+  const colors = ['#d4a843', '#f0d078', '#4caf50', '#e74c3c', '#2d6aa5', '#9b59b6', '#f39c12', '#1abc9c'];
+
+  for (let i = 0; i < 80; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.width = (Math.random() * 8 + 6) + 'px';
+    piece.style.height = (Math.random() * 14 + 10) + 'px';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    piece.style.animationDuration = (Math.random() * 2 + 2) + 's';
+    piece.style.animationDelay = (Math.random() * 1.5) + 's';
+    piece.style.opacity = Math.random() * 0.5 + 0.5;
+    container.appendChild(piece);
+  }
+}
+
+// ============================================================
+// UI UPDATES
+// ============================================================
+function updateFoundWords() {
+  if (!displayState) return;
+  const container = document.getElementById('foundWords');
+  const { foundWords, totalWords } = displayState;
+
+  let html = '';
+  for (let i = 0; i < totalWords; i++) {
+    if (i < foundWords.length) {
+      html += `<span class="fw-word found">${esc(foundWords[i])}</span>`;
+    } else {
+      html += `<span class="fw-word blank"></span>`;
+    }
+  }
+  container.innerHTML = html;
+}
+
+function updatePlayers() {
+  if (!displayState) return;
+  const bar = document.getElementById('playerBar');
+  bar.innerHTML = displayState.players.map((p, i) => {
+    const active = i === displayState.currentPlayerIndex ? 'active' : '';
+    return `<div class="player-panel ${active}">
+      <div class="player-indicator"></div>
+      <div class="player-name">${esc(p.name)}</div>
+      <div class="player-score">${p.score}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// UTILITY
+// ============================================================
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Resize handler
+window.addEventListener('resize', () => {
+  if (displayState && displayState.tiles.length > 0) {
+    buildTileGrid();
+    // Re-apply states
+    displayState.tiles.forEach(t => {
+      const el = tileElements[t.id];
+      if (el && t.state === 'found') {
+        el.classList.add('flipped', 'found');
+      }
+    });
+  }
+});
+</script>
+</body>
+</html>
