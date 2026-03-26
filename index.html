@@ -99,7 +99,7 @@
   .op-tile.found-tile { background: linear-gradient(135deg, #1a5a2a, #0f3d1a); border-color: #4caf50; color: #8fdf8f; }
   .op-tile.wrong-tile { background: linear-gradient(135deg, #6a1a1a, #4a0f0f); border-color: #e74c3c; color: #ff8888; }
   .op-tile.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
-  .op-tile .tile-num { position: absolute; top: 3px; left: 6px; font-size: 10px; color: #5588aa; }
+  .op-tile .tile-num { position: absolute; top: 4px; left: 8px; font-size: 16px; color: #7799bb; font-weight: 800; }
   .op-tile .tile-word { font-size: 13px; text-align: center; padding: 0 4px; }
   .op-tile .tile-answer { font-size: 10px; color: #888; margin-top: 2px; opacity: 0; transition: opacity 0.2s; }
   .show-answers .op-tile .tile-answer { opacity: 1; }
@@ -897,18 +897,20 @@ function renderGame() {
   const slots = Array(gameState.gridRows * gameState.gridCols).fill(null);
   gameState.tiles.forEach(t => { slots[t.row * gameState.gridCols + t.col] = t; });
 
+  let tileNum = 0;
   let keyIndex = 0;
   const keyLabels = '1234567890abcdefghijklmnop'.split('');
 
   grid.innerHTML = slots.map((tile) => {
     if (!tile) return '<div></div>';
+    tileNum++;
     const stateClass = tile.state === 'found' ? 'found-tile' : tile.state === 'revealed' ? 'wrong-tile' : 'hidden-tile';
     const disabled = gameState.phase !== 'playing' || tile.state === 'found' ? 'disabled' : '';
     const wordDisplay = tile.state !== 'hidden' ? esc(tile.word) : '';
     const key = keyLabels[keyIndex] || '';
     keyIndex++;
     return `<div class="op-tile ${stateClass} ${disabled}" onclick="onTileClick(${tile.id})" data-key="${key}">
-      <span class="tile-num">${tile.id + 1}</span>
+      <span class="tile-num">${tileNum}</span>
       <span class="tile-word">${wordDisplay || '?'}</span>
       <span class="tile-answer">${esc(tile.word)}</span>
       <span class="key-hint">${key}</span>

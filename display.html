@@ -172,10 +172,11 @@
     color: color-mix(in srgb, var(--gold) 12%, transparent);
   }
   .tile-number {
-    position: absolute; bottom: 5px; right: 8px;
-    font-size: clamp(9px, 1vw, 13px);
-    color: color-mix(in srgb, var(--gold) 20%, transparent);
-    font-weight: 600;
+    position: absolute; top: 8px; left: 10px;
+    font-size: clamp(16px, 2.2vw, 28px);
+    color: color-mix(in srgb, var(--gold) 35%, transparent);
+    font-weight: 800;
+    font-family: 'Inter', sans-serif;
   }
 
   .tile-front {
@@ -733,14 +734,16 @@ function buildTileGrid() {
   tiles.forEach(t => { slots[t.row * gridCols + t.col] = t; });
 
   tileElements = {};
+  let tileNum = 0;
 
   grid.innerHTML = slots.map((tile) => {
     if (!tile) return '<div class="tile empty-slot"></div>';
+    tileNum++;
     const flipped = tile.state === 'found' ? 'flipped found' : '';
     return `<div class="tile ${flipped}" id="tile-${tile.id}" data-id="${tile.id}">
       <div class="tile-inner">
         <div class="tile-face tile-back">
-          <span class="tile-number">${tile.id + 1}</span>
+          <span class="tile-number">${tileNum}</span>
         </div>
         <div class="tile-face tile-front">
           <span class="tile-word">${esc(tile.word)}</span>
