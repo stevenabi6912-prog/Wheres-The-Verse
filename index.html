@@ -12,7 +12,7 @@
     padding: 12px; font-size: 14px;
   }
   h1 { font-size: 20px; color: #d4a843; margin-bottom: 10px; }
-  h2 { font-size: 15px; color: #8899aa; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+  h2 { font-size: 15px; color: #b0c4d8; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
 
   .top-bar {
     display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
@@ -50,7 +50,7 @@
   input:focus, textarea:focus, select:focus { outline: none; border-color: #d4a843; }
   textarea { resize: vertical; min-height: 50px; }
   select { cursor: pointer; }
-  label { font-size: 12px; color: #8899aa; margin-bottom: 3px; display: block; }
+  label { font-size: 12px; color: #b0c4d8; margin-bottom: 3px; display: block; }
 
   .layout { display: grid; grid-template-columns: 320px 1fr; gap: 12px; }
   .panel {
@@ -67,8 +67,8 @@
     font-size: 12px;
   }
   .verse-item .ref { font-weight: 700; color: #d4a843; min-width: 90px; }
-  .verse-item .text { flex: 1; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .verse-item .count { color: #8899aa; font-size: 11px; white-space: nowrap; }
+  .verse-item .text { flex: 1; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .verse-item .count { color: #b0c4d8; font-size: 11px; white-space: nowrap; }
   .verse-item .actions { display: flex; gap: 4px; }
 
   .game-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
@@ -79,7 +79,7 @@
     margin-bottom: 12px; display: flex; gap: 20px; align-items: center;
     flex-wrap: wrap;
   }
-  .status-item { font-size: 13px; }
+  .status-item { font-size: 14px; color: #d0d8e4; }
   .status-item strong { color: #d4a843; }
   .status-item.active-player { color: #4caf50; font-weight: 700; }
   .status-item.looking-for { color: #e0b854; }
@@ -94,14 +94,14 @@
     font-weight: 700; font-size: 14px; transition: all 0.2s;
     border: 2px solid #2d6aa5; position: relative;
   }
-  .op-tile.hidden-tile { background: linear-gradient(135deg, #1e3a5f, #16213e); color: #5588aa; }
+  .op-tile.hidden-tile { background: linear-gradient(135deg, #1e3a5f, #16213e); color: #7aaace; }
   .op-tile.hidden-tile:hover { border-color: #d4a843; background: linear-gradient(135deg, #2a4a6f, #1e3060); }
   .op-tile.found-tile { background: linear-gradient(135deg, #1a5a2a, #0f3d1a); border-color: #4caf50; color: #8fdf8f; }
   .op-tile.wrong-tile { background: linear-gradient(135deg, #6a1a1a, #4a0f0f); border-color: #e74c3c; color: #ff8888; }
   .op-tile.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
-  .op-tile .tile-num { position: absolute; top: 4px; left: 8px; font-size: 16px; color: #7799bb; font-weight: 800; }
+  .op-tile .tile-num { position: absolute; top: 4px; left: 8px; font-size: 16px; color: #a0c0e0; font-weight: 800; }
   .op-tile .tile-word { font-size: 13px; text-align: center; padding: 0 4px; }
-  .op-tile .tile-answer { font-size: 10px; color: #888; margin-top: 2px; opacity: 0; transition: opacity 0.2s; }
+  .op-tile .tile-answer { font-size: 10px; color: #aab8c8; margin-top: 2px; opacity: 0; transition: opacity 0.2s; }
   .show-answers .op-tile .tile-answer { opacity: 1; }
 
   .found-words-bar {
@@ -109,7 +109,7 @@
     margin-top: 10px; font-size: 14px; line-height: 1.8; min-height: 42px;
   }
   .found-words-bar .found-word { display: inline-block; padding: 2px 6px; background: #2d8a4e; border-radius: 4px; margin: 2px; color: white; font-weight: 600; }
-  .found-words-bar .blank-word { display: inline-block; padding: 2px 6px; background: #1e3a5f; border-radius: 4px; margin: 2px; color: #5588aa; }
+  .found-words-bar .blank-word { display: inline-block; padding: 2px 6px; background: #1e3a5f; border-radius: 4px; margin: 2px; color: #7aaace; }
 
   .controls-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
   .toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
@@ -118,7 +118,7 @@
   .import-section { margin-top: 10px; }
   .import-section textarea { font-size: 11px; min-height: 60px; }
 
-  .empty-msg { color: #556; font-style: italic; font-size: 12px; padding: 10px; text-align: center; }
+  .empty-msg { color: #8899aa; font-style: italic; font-size: 12px; padding: 10px; text-align: center; }
 
   .toast-container { position: fixed; top: 12px; right: 12px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
   .toast {
@@ -133,7 +133,7 @@
   @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
 
-  .key-hint { position: absolute; bottom: 3px; right: 6px; font-size: 9px; color: #445; font-weight: 400; }
+  .key-hint { position: absolute; bottom: 3px; right: 6px; font-size: 9px; color: #7788aa; font-weight: 400; }
 </style>
 </head>
 <body>
