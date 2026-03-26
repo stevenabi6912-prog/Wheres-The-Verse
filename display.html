@@ -13,16 +13,16 @@
     --gold: #d4a843;
     --gold-light: #f0d078;
     --gold-dark: #a07a20;
-    --tile-back: #152040;
     --tile-border: #2a4070;
     --tile-front: #f5f0e1;
     --correct: #4caf50;
-    --correct-glow: #2d8a4e;
     --wrong: #e74c3c;
     --text: #e8e4dc;
     --text-dim: #6a7a9a;
     --player-active: #d4a843;
     --player-inactive: #3a4a6a;
+    --bg-glow: rgba(30, 50, 100, 0.4);
+    --bg-warm: rgba(100, 60, 20, 0.15);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -37,16 +37,27 @@
     user-select: none;
   }
 
-  /* ====== BACKGROUND ====== */
   body::before {
     content: '';
     position: fixed; inset: 0;
     background:
-      radial-gradient(ellipse 80% 60% at 50% 30%, rgba(30, 50, 100, 0.4), transparent),
-      radial-gradient(ellipse 60% 50% at 20% 80%, rgba(100, 60, 20, 0.15), transparent),
-      radial-gradient(ellipse 60% 50% at 80% 80%, rgba(100, 60, 20, 0.15), transparent);
+      radial-gradient(ellipse 80% 60% at 50% 30%, var(--bg-glow), transparent),
+      radial-gradient(ellipse 60% 50% at 20% 80%, var(--bg-warm), transparent),
+      radial-gradient(ellipse 60% 50% at 80% 80%, var(--bg-warm), transparent);
     pointer-events: none; z-index: 0;
   }
+
+  /* ====== FULLSCREEN BUTTON ====== */
+  .fullscreen-btn {
+    position: fixed; top: 10px; right: 10px; z-index: 200;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: var(--text-dim); font-size: 18px; width: 36px; height: 36px;
+    border-radius: 8px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; opacity: 0.4; transition: opacity 0.3s;
+  }
+  .fullscreen-btn:hover { opacity: 1; background: rgba(255,255,255,0.15); }
+  body:fullscreen .fullscreen-btn { opacity: 0.15; }
+  body:fullscreen .fullscreen-btn:hover { opacity: 0.8; }
 
   /* ====== WAITING SCREEN ====== */
   .waiting-screen {
@@ -56,20 +67,23 @@
   }
   .waiting-screen h1 {
     font-family: 'Playfair Display', serif;
-    font-size: clamp(48px, 8vw, 96px);
-    font-weight: 900;
+    font-size: clamp(48px, 8vw, 96px); font-weight: 900;
     color: var(--gold);
     text-shadow: 0 0 40px rgba(212, 168, 67, 0.3), 0 4px 12px rgba(0,0,0,0.5);
-    letter-spacing: 2px;
-    text-align: center;
+    letter-spacing: 2px; text-align: center;
   }
   .waiting-screen p {
     font-family: 'Lora', serif;
     font-size: clamp(16px, 2.5vw, 28px);
-    color: var(--text-dim);
-    margin-top: 16px;
-    font-style: italic;
+    color: var(--text-dim); margin-top: 16px; font-style: italic;
   }
+  .fullscreen-hint {
+    font-size: clamp(12px, 1.5vw, 18px); color: var(--text-dim);
+    margin-top: 40px; opacity: 0.5;
+    animation: hintPulse 3s ease infinite;
+  }
+  @keyframes hintPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+  body:fullscreen .fullscreen-hint { display: none; }
   .cross-watermark {
     position: absolute; top: 50%; left: 50%;
     transform: translate(-50%, -50%);
@@ -81,101 +95,91 @@
   .game-screen {
     flex: 1; display: none; flex-direction: column;
     position: relative; z-index: 1;
-    padding: 20px 30px;
+    padding: 16px 30px;
   }
   .game-screen.active { display: flex; }
 
   /* ====== HEADER ====== */
   .game-header {
-    text-align: center;
-    margin-bottom: 8px;
-    flex-shrink: 0;
+    text-align: center; margin-bottom: 4px; flex-shrink: 0;
   }
   .game-title {
     font-family: 'Playfair Display', serif;
-    font-size: clamp(24px, 3.5vw, 44px);
-    font-weight: 900;
+    font-size: clamp(22px, 3vw, 40px); font-weight: 900;
     color: var(--gold);
     text-shadow: 0 0 30px rgba(212, 168, 67, 0.25), 0 2px 8px rgba(0,0,0,0.4);
-    letter-spacing: 1px;
   }
   .verse-reference {
     font-family: 'Lora', serif;
-    font-size: clamp(16px, 2vw, 26px);
-    color: var(--text-dim);
-    margin-top: 2px;
-    font-style: italic;
+    font-size: clamp(14px, 1.8vw, 24px);
+    color: var(--text-dim); font-style: italic;
   }
+
+  /* ====== TIMER BAR ====== */
+  .timer-bar-container {
+    width: 100%; height: 6px; background: rgba(255,255,255,0.05);
+    border-radius: 3px; margin-top: 6px; overflow: hidden;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .timer-bar-container.active { opacity: 1; }
+  .timer-bar {
+    height: 100%; border-radius: 3px;
+    background: var(--gold);
+    transition: width 1s linear, background-color 0.5s;
+    width: 100%;
+  }
+  .timer-bar.warning { background: var(--wrong); }
 
   /* ====== TILE GRID ====== */
   .tile-area {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 0;
-    min-height: 0;
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 8px 0; min-height: 0;
   }
   .tile-grid {
-    display: grid;
-    gap: clamp(8px, 1.5vw, 16px);
-    justify-content: center;
-    perspective: 1200px;
+    display: grid; gap: clamp(8px, 1.5vw, 16px);
+    justify-content: center; perspective: 1200px;
   }
 
-  /* ====== INDIVIDUAL TILE ====== */
-  .tile {
-    position: relative;
-    border-radius: 12px;
-    cursor: default;
-    transition: transform 0.15s ease;
-  }
+  /* ====== TILES ====== */
+  .tile { position: relative; border-radius: 12px; cursor: default; }
   .tile-inner {
-    width: 100%; height: 100%;
-    position: relative;
+    width: 100%; height: 100%; position: relative;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .tile.flipped .tile-inner {
-    transform: rotateY(180deg);
-  }
+  .tile.flipped .tile-inner { transform: rotateY(180deg); }
 
   .tile-face {
-    position: absolute; inset: 0;
-    backface-visibility: hidden;
-    border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    flex-direction: column;
+    position: absolute; inset: 0; backface-visibility: hidden;
+    border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; flex-direction: column;
   }
 
-  /* Tile Back */
   .tile-back {
-    background: linear-gradient(145deg, #1a2d55, #0f1d3a);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--bg-deep) 30%, #1a2d55), var(--bg-deep));
     border: 2px solid var(--tile-border);
     box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
     overflow: hidden;
   }
   .tile-back::before {
-    content: '';
-    position: absolute; inset: 6px;
-    border: 1px solid rgba(212, 168, 67, 0.15);
+    content: ''; position: absolute; inset: 6px;
+    border: 1px solid color-mix(in srgb, var(--gold) 15%, transparent);
     border-radius: 8px;
   }
   .tile-back::after {
     content: '\2720';
     font-size: clamp(28px, 4vw, 56px);
-    color: rgba(212, 168, 67, 0.12);
+    color: color-mix(in srgb, var(--gold) 12%, transparent);
   }
   .tile-number {
     position: absolute; bottom: 5px; right: 8px;
     font-size: clamp(9px, 1vw, 13px);
-    color: rgba(212, 168, 67, 0.2);
+    color: color-mix(in srgb, var(--gold) 20%, transparent);
     font-weight: 600;
   }
 
-  /* Tile Front */
   .tile-front {
-    background: linear-gradient(145deg, #f8f3e6, #ede5d0);
+    background: linear-gradient(145deg, var(--tile-front), color-mix(in srgb, var(--tile-front) 85%, #aaa));
     border: 2px solid var(--gold-dark);
     transform: rotateY(180deg);
     box-shadow: 0 4px 20px rgba(0,0,0,0.3);
@@ -183,24 +187,22 @@
   }
   .tile-word {
     font-family: 'Lora', serif;
-    font-size: clamp(16px, 2.5vw, 36px);
-    font-weight: 700;
-    color: #2a1f0a;
-    text-align: center;
-    word-break: break-word;
-    line-height: 1.2;
+    font-size: clamp(16px, 2.5vw, 36px); font-weight: 700;
+    color: #2a1f0a; text-align: center; word-break: break-word; line-height: 1.2;
   }
 
   /* Tile States */
   .tile.found .tile-front {
     border-color: var(--correct);
-    box-shadow: 0 0 20px rgba(76, 175, 80, 0.4), 0 0 40px rgba(76, 175, 80, 0.15);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--correct) 40%, transparent),
+                0 0 40px color-mix(in srgb, var(--correct) 15%, transparent);
   }
   .tile.found .tile-word { color: #1a5a2a; }
 
   .tile.wrong .tile-front {
     border-color: var(--wrong);
-    box-shadow: 0 0 20px rgba(231, 76, 60, 0.5), 0 0 40px rgba(231, 76, 60, 0.2);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--wrong) 50%, transparent),
+                0 0 40px color-mix(in srgb, var(--wrong) 20%, transparent);
     animation: wrongShake 0.5s ease;
   }
   .tile.wrong .tile-word { color: #8b1a1a; }
@@ -209,14 +211,20 @@
     transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .tile.correct-pulse {
-    animation: correctPulse 0.6s ease;
+  .tile.correct-pulse { animation: correctPulse 0.6s ease; }
+  .tile.correct-glow .tile-front {
+    animation: correctGlowBurst 0.8s ease;
   }
 
   @keyframes correctPulse {
     0% { transform: scale(1); }
-    30% { transform: scale(1.08); }
+    25% { transform: scale(1.12); }
     100% { transform: scale(1); }
+  }
+  @keyframes correctGlowBurst {
+    0% { box-shadow: 0 0 20px color-mix(in srgb, var(--correct) 40%, transparent); }
+    30% { box-shadow: 0 0 40px color-mix(in srgb, var(--correct) 80%, transparent), 0 0 80px color-mix(in srgb, var(--correct) 30%, transparent); }
+    100% { box-shadow: 0 0 20px color-mix(in srgb, var(--correct) 40%, transparent); }
   }
   @keyframes wrongShake {
     0%, 100% { transform: translateX(0) rotateY(180deg); }
@@ -229,39 +237,28 @@
 
   .tile.empty-slot { visibility: hidden; }
 
-  /* ====== FOUND WORDS DISPLAY ====== */
-  .found-section {
-    flex-shrink: 0;
-    text-align: center;
-    padding: 10px 20px;
-  }
+  /* ====== FOUND WORDS ====== */
+  .found-section { flex-shrink: 0; text-align: center; padding: 8px 20px; }
   .found-words-display {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px;
-    min-height: 44px;
-    align-items: center;
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 6px; min-height: 40px; align-items: center;
   }
   .fw-word {
     font-family: 'Lora', serif;
-    font-size: clamp(16px, 2vw, 26px);
-    font-weight: 700;
-    padding: 4px 12px;
-    border-radius: 8px;
-    transition: all 0.4s ease;
+    font-size: clamp(14px, 1.8vw, 24px); font-weight: 700;
+    padding: 3px 10px; border-radius: 8px; transition: all 0.4s ease;
   }
   .fw-word.found {
-    background: rgba(76, 175, 80, 0.2);
-    color: #8fdf8f;
-    border: 1px solid rgba(76, 175, 80, 0.3);
+    background: color-mix(in srgb, var(--correct) 20%, transparent);
+    color: color-mix(in srgb, var(--correct) 100%, #8f8);
+    border: 1px solid color-mix(in srgb, var(--correct) 30%, transparent);
     animation: wordAppear 0.4s ease;
   }
   .fw-word.blank {
     background: rgba(30, 58, 95, 0.4);
     color: var(--text-dim);
     border: 1px solid rgba(42, 64, 112, 0.3);
-    min-width: 50px;
+    min-width: 45px;
   }
   .fw-word.blank::after { content: '\00B7\00B7\00B7\00B7'; }
   @keyframes wordAppear {
@@ -272,110 +269,78 @@
 
   /* ====== PLAYER BAR ====== */
   .player-bar {
-    flex-shrink: 0;
-    display: flex;
-    justify-content: center;
-    gap: clamp(20px, 5vw, 80px);
-    padding: 12px 20px;
+    flex-shrink: 0; display: flex; justify-content: center;
+    gap: clamp(20px, 5vw, 80px); padding: 10px 20px;
   }
   .player-panel {
     display: flex; align-items: center; gap: 14px;
-    padding: 10px 24px;
-    border-radius: 12px;
+    padding: 8px 20px; border-radius: 12px;
     border: 2px solid var(--player-inactive);
     background: rgba(15, 25, 50, 0.6);
-    transition: all 0.4s ease;
-    min-width: 200px;
+    transition: all 0.4s ease; min-width: 180px;
   }
   .player-panel.active {
     border-color: var(--player-active);
-    background: rgba(212, 168, 67, 0.08);
-    box-shadow: 0 0 20px rgba(212, 168, 67, 0.15);
+    background: color-mix(in srgb, var(--player-active) 8%, transparent);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--player-active) 15%, transparent);
   }
   .player-indicator {
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    background: var(--player-inactive);
-    transition: all 0.4s ease;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--player-inactive); transition: all 0.4s ease;
   }
   .player-panel.active .player-indicator {
     background: var(--gold);
-    box-shadow: 0 0 10px rgba(212, 168, 67, 0.6);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--gold) 60%, transparent);
     animation: indicatorPulse 1.5s ease infinite;
   }
   @keyframes indicatorPulse {
-    0%, 100% { box-shadow: 0 0 10px rgba(212, 168, 67, 0.6); }
-    50% { box-shadow: 0 0 20px rgba(212, 168, 67, 0.9); }
+    0%, 100% { box-shadow: 0 0 10px color-mix(in srgb, var(--gold) 60%, transparent); }
+    50% { box-shadow: 0 0 20px color-mix(in srgb, var(--gold) 90%, transparent); }
   }
   .player-name {
     font-family: 'Playfair Display', serif;
-    font-size: clamp(16px, 2vw, 24px);
-    font-weight: 700;
-    color: var(--text);
+    font-size: clamp(14px, 1.8vw, 22px); font-weight: 700; color: var(--text);
   }
   .player-panel.active .player-name { color: var(--gold-light); }
   .player-score {
-    font-size: clamp(28px, 3.5vw, 48px);
-    font-weight: 900;
-    color: var(--text-dim);
-    margin-left: auto;
+    font-size: clamp(24px, 3vw, 44px); font-weight: 900;
+    color: var(--text-dim); margin-left: auto;
     font-family: 'Playfair Display', serif;
   }
   .player-panel.active .player-score { color: var(--gold); }
 
-  /* ====== CELEBRATION OVERLAY ====== */
+  /* ====== CELEBRATION ====== */
   .celebration-overlay {
-    position: fixed; inset: 0;
-    display: none;
+    position: fixed; inset: 0; display: none;
     align-items: center; justify-content: center;
-    z-index: 100;
-    background: rgba(7, 11, 26, 0.85);
+    z-index: 100; background: rgba(7, 11, 26, 0.85);
     animation: fadeIn 0.4s ease;
   }
   .celebration-overlay.active { display: flex; }
-  .celebration-content {
-    text-align: center;
-    animation: celebrationZoom 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  }
+  .celebration-content { text-align: center; animation: celebrationZoom 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
   .celebration-content h2 {
     font-family: 'Playfair Display', serif;
-    font-size: clamp(36px, 6vw, 80px);
-    font-weight: 900;
+    font-size: clamp(36px, 6vw, 80px); font-weight: 900;
     color: var(--gold);
-    text-shadow: 0 0 40px rgba(212, 168, 67, 0.5), 0 4px 12px rgba(0,0,0,0.5);
-    margin-bottom: 10px;
+    text-shadow: 0 0 40px color-mix(in srgb, var(--gold) 50%, transparent), 0 4px 12px rgba(0,0,0,0.5);
   }
   .celebration-content p {
     font-family: 'Lora', serif;
-    font-size: clamp(18px, 3vw, 36px);
-    color: var(--text);
+    font-size: clamp(18px, 3vw, 36px); color: var(--text); margin-top: 10px;
   }
   .celebration-verse {
     font-family: 'Lora', serif;
     font-size: clamp(14px, 2vw, 22px);
-    color: var(--gold-light);
-    margin-top: 20px;
-    max-width: 700px;
-    line-height: 1.6;
-    font-style: italic;
-    opacity: 0.9;
+    color: var(--gold-light); margin-top: 20px;
+    max-width: 700px; line-height: 1.6; font-style: italic; opacity: 0.9;
   }
-  @keyframes celebrationZoom {
-    0% { transform: scale(0.3); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
-  }
+  @keyframes celebrationZoom { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
 
   /* ====== CONFETTI ====== */
-  .confetti-container {
-    position: fixed; inset: 0;
-    pointer-events: none; z-index: 99;
-    overflow: hidden;
-  }
+  .confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 99; overflow: hidden; }
   .confetti-piece {
-    position: absolute;
-    width: 10px; height: 20px;
-    top: -20px;
+    position: absolute; width: 10px; height: 20px; top: -20px;
     animation: confettiFall linear forwards;
   }
   @keyframes confettiFall {
@@ -385,41 +350,38 @@
 
   /* ====== TURN TRANSITION ====== */
   .turn-flash {
-    position: fixed; inset: 0;
-    display: none; align-items: center; justify-content: center;
-    z-index: 50;
-    background: rgba(7, 11, 26, 0.7);
+    position: fixed; inset: 0; display: none;
+    align-items: center; justify-content: center;
+    z-index: 50; background: rgba(7, 11, 26, 0.7);
     animation: fadeIn 0.2s ease;
   }
   .turn-flash.active { display: flex; }
   .turn-flash h2 {
     font-family: 'Playfair Display', serif;
-    font-size: clamp(28px, 5vw, 60px);
-    color: var(--gold);
-    text-shadow: 0 0 30px rgba(212, 168, 67, 0.4);
+    font-size: clamp(28px, 5vw, 60px); color: var(--gold);
+    text-shadow: 0 0 30px color-mix(in srgb, var(--gold) 40%, transparent);
     animation: celebrationZoom 0.4s ease;
   }
 
   /* ====== WRONG FLASH ====== */
   .wrong-flash {
-    position: fixed; inset: 0;
-    pointer-events: none; z-index: 45;
-    background: rgba(231, 76, 60, 0.15);
+    position: fixed; inset: 0; pointer-events: none; z-index: 45;
+    background: color-mix(in srgb, var(--wrong) 15%, transparent);
     animation: wrongFlashAnim 0.4s ease forwards;
   }
-  @keyframes wrongFlashAnim {
-    0% { opacity: 1; }
-    100% { opacity: 0; }
-  }
+  @keyframes wrongFlashAnim { 0% { opacity: 1; } 100% { opacity: 0; } }
 </style>
 </head>
 <body>
+
+<button class="fullscreen-btn" onclick="toggleFullscreen()" title="Toggle Fullscreen">&#x26F6;</button>
 
 <!-- WAITING SCREEN -->
 <div class="waiting-screen" id="waitingScreen">
   <div class="cross-watermark">&cross;</div>
   <h1>Where's the Verse</h1>
   <p>Waiting for the game to begin...</p>
+  <p class="fullscreen-hint" id="fullscreenHint">Press F for fullscreen</p>
 </div>
 
 <!-- GAME SCREEN -->
@@ -427,6 +389,9 @@
   <div class="game-header">
     <div class="game-title">Where's the Verse</div>
     <div class="verse-reference" id="verseRef"></div>
+    <div class="timer-bar-container" id="timerBarContainer">
+      <div class="timer-bar" id="timerBar"></div>
+    </div>
   </div>
 
   <div class="tile-area">
@@ -441,9 +406,7 @@
 </div>
 
 <!-- Turn Transition -->
-<div class="turn-flash" id="turnFlash">
-  <h2 id="turnFlashText"></h2>
-</div>
+<div class="turn-flash" id="turnFlash"><h2 id="turnFlashText"></h2></div>
 
 <!-- Celebration Overlay -->
 <div class="celebration-overlay" id="celebrationOverlay">
@@ -454,7 +417,6 @@
   </div>
 </div>
 
-<!-- Confetti Container -->
 <div class="confetti-container" id="confettiContainer"></div>
 
 <script>
@@ -466,52 +428,149 @@ let tileElements = {};
 const channel = new BroadcastChannel('wheres-the-verse');
 
 // ============================================================
-// SOUND EFFECTS (display side for audience)
+// FULLSCREEN
+// ============================================================
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'f' || e.key === 'F') {
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      toggleFullscreen();
+    }
+  }
+});
+
+// ============================================================
+// FLIP QUEUE (staggered visible animations)
+// ============================================================
+let flipQueue = [];
+let flipProcessing = false;
+
+function queueFlip(tileId, callback) {
+  flipQueue.push({ tileId, callback });
+  if (!flipProcessing) processFlipQueue();
+}
+
+function processFlipQueue() {
+  if (flipQueue.length === 0) { flipProcessing = false; return; }
+  flipProcessing = true;
+  const item = flipQueue.shift();
+  item.callback();
+  setTimeout(() => processFlipQueue(), 300);
+}
+
+function clearFlipQueue() {
+  flipQueue = [];
+  flipProcessing = false;
+}
+
+// ============================================================
+// SOUND ENGINE
 // ============================================================
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
+function getCtx() { if (!audioCtx) audioCtx = new AudioCtx(); return audioCtx; }
 
-function getAudioCtx() {
-  if (!audioCtx) audioCtx = new AudioCtx();
-  return audioCtx;
+const SoundEngine = {
+  correct() {
+    try {
+      const ctx = getCtx(); const t = ctx.currentTime;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass'; filter.frequency.value = 4000;
+      filter.connect(ctx.destination);
+      [523.25, 659.25, 783.99].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = freq; osc.detune.value = (i - 1) * 3;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.1, t + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+        osc.connect(gain); gain.connect(filter);
+        osc.start(t); osc.stop(t + 0.8);
+      });
+    } catch(e) {}
+  },
+
+  wrong() {
+    try {
+      const ctx = getCtx(); const t = ctx.currentTime;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass'; filter.frequency.value = 1500;
+      filter.connect(ctx.destination);
+      [[330, 220], [294, 196]].forEach(([f1, f2]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f1, t);
+        osc.frequency.linearRampToValueAtTime(f2, t + 0.3);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+        osc.connect(gain); gain.connect(filter);
+        osc.start(t); osc.stop(t + 0.4);
+      });
+    } catch(e) {}
+  },
+
+  celebration() {
+    try {
+      const ctx = getCtx(); const t = ctx.currentTime;
+      const chords = [
+        { notes: [261.6, 329.6, 392.0], time: 0 },
+        { notes: [392.0, 493.9, 587.3, 784.0], time: 0.5 }
+      ];
+      chords.forEach(chord => {
+        chord.notes.forEach(freq => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle'; osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0, t + chord.time);
+          gain.gain.linearRampToValueAtTime(0.08, t + chord.time + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + chord.time + 1.2);
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start(t + chord.time); osc.stop(t + chord.time + 1.2);
+        });
+      });
+    } catch(e) {}
+  },
+
+  tick() {
+    try {
+      const ctx = getCtx(); const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 800;
+      gain.gain.setValueAtTime(0.04, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t); osc.stop(t + 0.05);
+    } catch(e) {}
+  }
+};
+
+// ============================================================
+// TIMER DISPLAY
+// ============================================================
+function updateTimer(remaining, duration) {
+  const container = document.getElementById('timerBarContainer');
+  const bar = document.getElementById('timerBar');
+  container.classList.add('active');
+  const pct = (remaining / duration) * 100;
+  bar.style.width = pct + '%';
+  bar.className = 'timer-bar' + (remaining <= 5 ? ' warning' : '');
+  if (remaining <= 5 && remaining > 0) SoundEngine.tick();
 }
 
-function playSound(type) {
-  try {
-    const ctx = getAudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    if (type === 'correct') {
-      osc.frequency.setValueAtTime(523, ctx.currentTime);
-      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
-    } else if (type === 'wrong') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(200, ctx.currentTime);
-      osc.frequency.setValueAtTime(150, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.4);
-    } else if (type === 'celebration') {
-      [523, 659, 784, 1047].forEach((freq, i) => {
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
-        g.gain.setValueAtTime(0.12, ctx.currentTime + i * 0.12);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.4);
-        o.start(ctx.currentTime + i * 0.12);
-        o.stop(ctx.currentTime + i * 0.12 + 0.4);
-      });
-    }
-  } catch (e) { /* audio not available */ }
+function hideTimer() {
+  const container = document.getElementById('timerBarContainer');
+  container.classList.remove('active');
+  document.getElementById('timerBar').style.width = '100%';
+  document.getElementById('timerBar').className = 'timer-bar';
 }
 
 // ============================================================
@@ -523,6 +582,7 @@ channel.onmessage = (e) => {
   switch (msg.type) {
     case 'new_round':
       hideCelebration();
+      clearFlipQueue();
       displayState = msg.state;
       showGameScreen();
       buildTileGrid();
@@ -532,15 +592,18 @@ channel.onmessage = (e) => {
 
     case 'correct_pick':
       displayState = msg.state;
-      animateCorrectPick(msg.tileIndex);
-      updateFoundWords();
-      playSound('correct');
+      queueFlip(msg.tileIndex, () => {
+        animateCorrectPick(msg.tileIndex);
+        updateFoundWords();
+        SoundEngine.correct();
+      });
       break;
 
     case 'wrong_pick':
+      clearFlipQueue();
       animateWrongPick(msg.tileIndex, msg.revealedWord);
       showWrongFlash();
-      playSound('wrong');
+      SoundEngine.wrong();
       break;
 
     case 'reset_tiles':
@@ -549,15 +612,30 @@ channel.onmessage = (e) => {
       showTurnFlash(displayState.players[displayState.currentPlayerIndex].name + "'s Turn");
       break;
 
+    case 'timer_expired':
+      displayState = msg.state;
+      showWrongFlash();
+      SoundEngine.wrong();
+      animateResetTiles();
+      showTurnFlash("Time's Up! " + displayState.players[displayState.currentPlayerIndex].name + "'s Turn");
+      break;
+
     case 'verse_complete':
       displayState = msg.state;
-      animateCorrectPick(msg.tileIndex);
-      playSound('correct');
-      setTimeout(() => {
-        updatePlayers();
-        showCelebration(msg.playerIndex);
-        playSound('celebration');
-      }, 800);
+      queueFlip(msg.tileIndex, () => {
+        animateCorrectPick(msg.tileIndex);
+        SoundEngine.correct();
+      });
+      // Wait for queue to drain + a beat
+      const waitForQueue = () => {
+        if (flipProcessing) { setTimeout(waitForQueue, 100); return; }
+        setTimeout(() => {
+          updatePlayers();
+          showCelebration(msg.playerIndex);
+          SoundEngine.celebration();
+        }, 400);
+      };
+      waitForQueue();
       break;
 
     case 'sync':
@@ -570,8 +648,37 @@ channel.onmessage = (e) => {
 
     case 'reset':
       displayState = null;
+      clearFlipQueue();
       showWaitingScreen();
       hideCelebration();
+      hideTimer();
+      break;
+
+    case 'set_theme':
+      applyTheme(msg.vars);
+      break;
+
+    case 'timer_tick':
+      updateTimer(msg.remaining, msg.duration);
+      break;
+
+    case 'timer_stop':
+      hideTimer();
+      break;
+
+    case 'undo_correct':
+      clearFlipQueue();
+      displayState = msg.state;
+      undoCorrectOnDisplay(msg.tileId);
+      updateFoundWords();
+      updatePlayers();
+      break;
+
+    case 'undo_wrong':
+      clearFlipQueue();
+      displayState = msg.state;
+      undoWrongOnDisplay(msg.tileId);
+      updatePlayers();
       break;
   }
 };
@@ -579,10 +686,17 @@ channel.onmessage = (e) => {
 // ============================================================
 // REQUEST SYNC ON LOAD
 // ============================================================
-// When display opens or refreshes, ask operator for current state
-setTimeout(() => {
-  channel.postMessage({ type: 'request_sync' });
-}, 300);
+setTimeout(() => { channel.postMessage({ type: 'request_sync' }); }, 300);
+
+// ============================================================
+// THEME
+// ============================================================
+function applyTheme(vars) {
+  const root = document.documentElement;
+  for (const [key, value] of Object.entries(vars)) {
+    root.style.setProperty(key, value);
+  }
+}
 
 // ============================================================
 // SCREENS
@@ -606,7 +720,7 @@ function buildTileGrid() {
   const { gridRows, gridCols, tiles } = displayState;
 
   const availW = window.innerWidth - 80;
-  const availH = window.innerHeight - 300;
+  const availH = window.innerHeight - 280;
   const maxTileW = Math.floor(availW / gridCols) - 16;
   const maxTileH = Math.floor(availH / gridRows) - 16;
   const tileW = Math.min(maxTileW, 200);
@@ -620,10 +734,8 @@ function buildTileGrid() {
 
   tileElements = {};
 
-  grid.innerHTML = slots.map((tile, i) => {
-    if (!tile) {
-      return '<div class="tile empty-slot"></div>';
-    }
+  grid.innerHTML = slots.map((tile) => {
+    if (!tile) return '<div class="tile empty-slot"></div>';
     const flipped = tile.state === 'found' ? 'flipped found' : '';
     return `<div class="tile ${flipped}" id="tile-${tile.id}" data-id="${tile.id}">
       <div class="tile-inner">
@@ -637,9 +749,7 @@ function buildTileGrid() {
     </div>`;
   }).join('');
 
-  tiles.forEach(t => {
-    tileElements[t.id] = document.getElementById('tile-' + t.id);
-  });
+  tiles.forEach(t => { tileElements[t.id] = document.getElementById('tile-' + t.id); });
 }
 
 // ============================================================
@@ -648,31 +758,23 @@ function buildTileGrid() {
 function animateCorrectPick(tileId) {
   const el = tileElements[tileId];
   if (!el) return;
-
-  el.classList.add('flipped', 'found', 'correct-pulse');
-  setTimeout(() => el.classList.remove('correct-pulse'), 600);
-
+  el.classList.add('flipped', 'found', 'correct-pulse', 'correct-glow');
+  setTimeout(() => { el.classList.remove('correct-pulse', 'correct-glow'); }, 800);
   const tile = displayState.tiles.find(t => t.id === tileId);
   if (tile) tile.state = 'found';
-
   updateFoundWords();
 }
 
 function animateWrongPick(tileId, word) {
   const el = tileElements[tileId];
   if (!el) return;
-
   const wordEl = el.querySelector('.tile-word');
   if (wordEl) wordEl.textContent = word;
-
   el.classList.add('flipped', 'wrong');
 }
 
 function animateResetTiles() {
-  const visibleTiles = Object.values(tileElements).filter(
-    el => el.classList.contains('flipped')
-  );
-
+  const visibleTiles = Object.values(tileElements).filter(el => el.classList.contains('flipped'));
   visibleTiles.forEach((el, i) => {
     setTimeout(() => {
       el.classList.add('flip-back');
@@ -680,17 +782,30 @@ function animateResetTiles() {
       setTimeout(() => el.classList.remove('flip-back'), 600);
     }, i * 80);
   });
+  setTimeout(() => { updateFoundWords(); updatePlayers(); }, visibleTiles.length * 80 + 100);
+}
 
-  setTimeout(() => {
-    updateFoundWords();
-    updatePlayers();
-  }, visibleTiles.length * 80 + 100);
+function undoCorrectOnDisplay(tileId) {
+  const el = tileElements[tileId];
+  if (!el) return;
+  el.classList.add('flip-back');
+  el.classList.remove('flipped', 'found', 'correct-pulse', 'correct-glow');
+  setTimeout(() => el.classList.remove('flip-back'), 600);
+}
+
+function undoWrongOnDisplay(tileId) {
+  const el = tileElements[tileId];
+  if (!el) return;
+  el.classList.add('flip-back');
+  el.classList.remove('flipped', 'wrong');
+  setTimeout(() => el.classList.remove('flip-back'), 600);
+  // Hide turn flash if visible
+  document.getElementById('turnFlash').classList.remove('active');
 }
 
 function showTurnFlash(text) {
   const flash = document.getElementById('turnFlash');
-  const flashText = document.getElementById('turnFlashText');
-  flashText.textContent = text;
+  document.getElementById('turnFlashText').textContent = text;
   flash.classList.add('active');
   setTimeout(() => flash.classList.remove('active'), 1500);
 }
@@ -709,12 +824,9 @@ function showCelebration(playerIndex) {
   const player = displayState.players[playerIndex];
   document.getElementById('celebrationTitle').textContent = 'Verse Complete!';
   document.getElementById('celebrationSub').textContent = player.name + ' found the verse!';
-
-  // Show the complete verse text
   const verseText = displayState.verseText || displayState.foundWords.join(' ');
   document.getElementById('celebrationVerse').textContent =
     displayState.verseReference + ' \u2014 ' + verseText;
-
   document.getElementById('celebrationOverlay').classList.add('active');
   launchConfetti();
 }
@@ -728,7 +840,6 @@ function launchConfetti() {
   const container = document.getElementById('confettiContainer');
   container.innerHTML = '';
   const colors = ['#d4a843', '#f0d078', '#4caf50', '#e74c3c', '#2d6aa5', '#9b59b6', '#f39c12', '#1abc9c'];
-
   for (let i = 0; i < 80; i++) {
     const piece = document.createElement('div');
     piece.className = 'confetti-piece';
@@ -751,7 +862,6 @@ function updateFoundWords() {
   if (!displayState) return;
   const container = document.getElementById('foundWords');
   const { foundWords, totalWords } = displayState;
-
   let html = '';
   for (let i = 0; i < totalWords; i++) {
     if (i < foundWords.length) {
@@ -779,20 +889,14 @@ function updatePlayers() {
 // ============================================================
 // UTILITY
 // ============================================================
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 window.addEventListener('resize', () => {
   if (displayState && displayState.tiles.length > 0) {
     buildTileGrid();
     displayState.tiles.forEach(t => {
       const el = tileElements[t.id];
-      if (el && t.state === 'found') {
-        el.classList.add('flipped', 'found');
-      }
+      if (el && t.state === 'found') el.classList.add('flipped', 'found');
     });
   }
 });
