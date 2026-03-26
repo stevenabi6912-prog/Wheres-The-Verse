@@ -639,6 +639,13 @@ channel.onmessage = (e) => {
       waitForQueue();
       break;
 
+    case 'solo_time_up':
+      displayState = msg.state;
+      hideTimer();
+      SoundEngine.wrong();
+      showSoloTimeUp();
+      break;
+
     case 'sync':
       displayState = msg.state;
       showGameScreen();
@@ -834,6 +841,16 @@ function showCelebration(playerIndex) {
   launchConfetti();
 }
 
+function showSoloTimeUp() {
+  document.getElementById('celebrationTitle').textContent = "Time's Up!";
+  const progress = displayState.foundWords.length + ' of ' + displayState.totalWords + ' words found';
+  document.getElementById('celebrationSub').textContent = progress;
+  document.getElementById('celebrationVerse').textContent =
+    displayState.verseReference + ' \u2014 ' + (displayState.verseText || '');
+  document.getElementById('celebrationOverlay').classList.add('active');
+  showWrongFlash();
+}
+
 function hideCelebration() {
   document.getElementById('celebrationOverlay').classList.remove('active');
   document.getElementById('confettiContainer').innerHTML = '';
@@ -879,8 +896,10 @@ function updateFoundWords() {
 function updatePlayers() {
   if (!displayState) return;
   const bar = document.getElementById('playerBar');
-  bar.innerHTML = displayState.players.map((p, i) => {
-    const active = i === displayState.currentPlayerIndex ? 'active' : '';
+  const isSolo = displayState.mode === 'solo';
+  const playersToShow = isSolo ? [displayState.players[0]] : displayState.players;
+  bar.innerHTML = playersToShow.map((p, i) => {
+    const active = (isSolo || i === displayState.currentPlayerIndex) ? 'active' : '';
     return `<div class="player-panel ${active}">
       <div class="player-indicator"></div>
       <div class="player-name">${esc(p.name)}</div>

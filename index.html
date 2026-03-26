@@ -201,15 +201,22 @@
           <label>Select Verse</label>
           <select id="verseSelect"><option value="">-- Choose a verse --</option></select>
         </div>
-        <div class="field">
+        <div class="field" style="min-width:90px;max-width:110px;">
+          <label>Mode</label>
+          <select id="gameMode" onchange="onModeChange()">
+            <option value="2player">2 Player</option>
+            <option value="solo">Solo Timed</option>
+          </select>
+        </div>
+        <div class="field" id="player1Field">
           <label>Player 1</label>
           <input type="text" id="player1Name" value="Player 1">
         </div>
-        <div class="field">
+        <div class="field" id="player2Field">
           <label>Player 2</label>
           <input type="text" id="player2Name" value="Player 2">
         </div>
-        <div class="field" style="min-width:80px;max-width:100px;">
+        <div class="field" style="min-width:80px;max-width:100px;" id="timerField">
           <label>Timer</label>
           <select id="timerDuration">
             <option value="0">Off</option>
@@ -217,6 +224,10 @@
             <option value="15">15s</option>
             <option value="20">20s</option>
             <option value="30">30s</option>
+            <option value="45">45s</option>
+            <option value="60">60s</option>
+            <option value="90">90s</option>
+            <option value="120">2m</option>
           </select>
         </div>
         <button class="btn btn-green" id="startBtn" onclick="startRound()">Start Round</button>
@@ -442,11 +453,26 @@ const SoundEngine = {
 };
 
 // ============================================================
+// GAME MODE
+// ============================================================
+function onModeChange() {
+  const mode = document.getElementById('gameMode').value;
+  const isSolo = mode === 'solo';
+  document.getElementById('player2Field').style.display = isSolo ? 'none' : '';
+  document.getElementById('player1Field').querySelector('label').textContent = isSolo ? 'Player Name' : 'Player 1';
+  // In solo mode, default timer to 60s if currently off
+  if (isSolo && document.getElementById('timerDuration').value === '0') {
+    document.getElementById('timerDuration').value = '60';
+  }
+}
+
+// ============================================================
 // GAME STATE
 // ============================================================
 let verses = JSON.parse(localStorage.getItem('wtv_verses') || '[]');
 let gameState = {
   phase: 'idle',
+  mode: '2player', // '2player' or 'solo'
   verse: null,
   words: [],
   tiles: [],
@@ -528,7 +554,20 @@ function updateTimerDisplay() {
 function timerExpired() {
   if (gameState.phase !== 'playing' || gameState.locked) return;
   SoundEngine.wrong();
-  // Reset tiles and switch player (like a wrong pick but no tile revealed)
+
+  if (gameState.mode === 'solo') {
+    // Solo mode: game over - time ran out
+    gameState.phase = 'celebration'; // reuse celebration phase for end state
+    gameState.lastAction = null;
+    hideUndoBtn();
+    renderGame();
+    channel.postMessage({ type: 'solo_time_up', state: getDisplayState() });
+    channel.postMessage({ type: 'timer_stop' });
+    toast('Time\'s up! Verse not completed.', 'error');
+    return;
+  }
+
+  // 2-player mode: reset tiles and switch player
   gameState.tiles.forEach(t => {
     if (t.state === 'found') t.state = 'hidden';
   });
@@ -705,7 +744,16 @@ function startRound() {
     state: 'hidden'
   }));
 
+  const mode = document.getElementById('gameMode').value;
+  const isSolo = mode === 'solo';
+
+  // Solo mode requires a timer
+  if (isSolo && (parseInt(document.getElementById('timerDuration').value) || 0) === 0) {
+    return toast('Solo mode requires a timer. Set a timer duration.', 'error');
+  }
+
   gameState.phase = 'playing';
+  gameState.mode = mode;
   gameState.verse = verse;
   gameState.words = words;
   gameState.tiles = tiles;
@@ -717,10 +765,10 @@ function startRound() {
   gameState.locked = false;
   gameState.lastAction = null;
   gameState.wrongResetTimeout = null;
-  gameState.players[0].name = document.getElementById('player1Name').value || 'Player 1';
-  gameState.players[1].name = document.getElementById('player2Name').value || 'Player 2';
+  gameState.players[0].name = document.getElementById('player1Name').value || (isSolo ? 'Player' : 'Player 1');
+  gameState.players[1].name = isSolo ? '' : (document.getElementById('player2Name').value || 'Player 2');
 
-  document.getElementById('passBtn').style.display = '';
+  document.getElementById('passBtn').style.display = isSolo ? 'none' : '';
   hideUndoBtn();
   renderGame();
   channel.postMessage({ type: 'new_round', state: getDisplayState() });
@@ -767,7 +815,9 @@ function onTileClick(tileId) {
   const tile = gameState.tiles.find(t => t.id === tileId);
   if (!tile || tile.state === 'found') return;
 
-  stopTurnTimer();
+  const isSolo = gameState.mode === 'solo';
+  // In solo mode timer runs continuously; in 2-player it resets per pick
+  if (!isSolo) stopTurnTimer();
   const neededWord = gameState.words[gameState.currentWordIndex];
 
   if (tile.word === neededWord) {
@@ -780,6 +830,7 @@ function onTileClick(tileId) {
     showUndoBtn();
 
     if (gameState.currentWordIndex >= gameState.words.length) {
+      stopTurnTimer();
       gameState.players[gameState.currentPlayerIndex].score++;
       gameState.phase = 'celebration';
       SoundEngine.celebration();
@@ -795,7 +846,7 @@ function onTileClick(tileId) {
 
     renderGame();
     channel.postMessage({ type: 'correct_pick', tileIndex: tile.id, state: getDisplayState() });
-    startTurnTimer();
+    if (!isSolo) startTurnTimer();
   } else {
     // WRONG
     gameState.locked = true;
@@ -810,14 +861,15 @@ function onTileClick(tileId) {
       });
       gameState.foundWords = [];
       gameState.currentWordIndex = 0;
-      gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % 2;
+      // In solo mode, same player continues; in 2-player, switch
+      if (!isSolo) gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % 2;
       gameState.locked = false;
       gameState.lastAction = null;
       gameState.wrongResetTimeout = null;
       hideUndoBtn();
       renderGame();
       channel.postMessage({ type: 'reset_tiles', state: getDisplayState() });
-      startTurnTimer();
+      if (!isSolo) startTurnTimer();
     }, 2000);
 
     gameState.lastAction = { type: 'wrong', tileId: tile.id };
@@ -842,6 +894,7 @@ function nextRound() {
 function getDisplayState() {
   return {
     phase: gameState.phase,
+    mode: gameState.mode,
     verseReference: gameState.verse ? gameState.verse.reference : '',
     verseText: gameState.verse ? gameState.verse.text : '',
     tiles: gameState.tiles.map(t => ({ id: t.id, word: t.word, row: t.row, col: t.col, state: t.state })),
@@ -878,10 +931,18 @@ function renderGame() {
 
   refDisplay.textContent = gameState.verse.reference;
   const cp = gameState.players[gameState.currentPlayerIndex];
-  document.getElementById('statusTurn').innerHTML =
-    gameState.phase === 'celebration'
-      ? `<strong style="color:#4caf50">${esc(cp.name)} completed the verse!</strong>`
+  const isSolo = gameState.mode === 'solo';
+  if (gameState.phase === 'celebration') {
+    document.getElementById('statusTurn').innerHTML = isSolo
+      ? (gameState.currentWordIndex >= gameState.words.length
+          ? `<strong style="color:#4caf50">${esc(cp.name)} completed the verse!</strong>`
+          : `<strong style="color:#e74c3c">Time's Up!</strong>`)
+      : `<strong style="color:#4caf50">${esc(cp.name)} completed the verse!</strong>`;
+  } else {
+    document.getElementById('statusTurn').innerHTML = isSolo
+      ? `<span class="active-player">${esc(cp.name)}</span>`
       : `<span class="active-player">${esc(cp.name)}'s Turn</span>`;
+  }
   document.getElementById('statusLooking').innerHTML =
     gameState.phase === 'playing'
       ? `<span class="looking-for">Word ${gameState.currentWordIndex + 1}: "<strong>${esc(gameState.words[gameState.currentWordIndex])}</strong>"</span>`
