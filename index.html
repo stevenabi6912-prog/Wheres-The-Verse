@@ -557,7 +557,15 @@ function updateTimerDisplay() {
 }
 
 function timerExpired() {
-  if (gameState.phase !== 'playing' || gameState.locked) return;
+  if (gameState.phase !== 'playing') return;
+
+  // In solo mode, timer expiry ends the game even during a locked state
+  if (gameState.mode === 'solo') {
+    if (gameState.wrongResetTimeout) { clearTimeout(gameState.wrongResetTimeout); gameState.wrongResetTimeout = null; }
+    gameState.locked = false;
+  }
+
+  if (gameState.locked) return;
   SoundEngine.wrong();
 
   if (gameState.mode === 'solo') {
