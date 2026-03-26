@@ -188,7 +188,10 @@
       <h2>Bulk Import</h2>
       <label>One per line: Reference | Verse text</label>
       <textarea id="bulkImport" placeholder="John 3:16 | For God so loved the world...&#10;Romans 8:28 | And we know that all things..."></textarea>
-      <button class="btn btn-blue btn-sm" onclick="bulkImportVerses()" style="margin-top:4px;">Import</button>
+      <div style="display:flex;gap:6px;margin-top:4px;">
+        <button class="btn btn-blue btn-sm" onclick="bulkImportVerses()">Import</button>
+        <button class="btn btn-green btn-sm" onclick="loadDefaultVerses()">Load KJV Defaults</button>
+      </div>
     </div>
   </div>
 
@@ -461,10 +464,8 @@ function onModeChange() {
   const isSolo = mode === 'solo';
   document.getElementById('player2Field').style.display = isSolo ? 'none' : '';
   document.getElementById('player1Field').querySelector('label').textContent = isSolo ? 'Player Name' : 'Player 1';
-  // In solo mode, default timer to 60s if currently off
-  if (isSolo && document.getElementById('timerDuration').value === '0') {
-    document.getElementById('timerDuration').value = '60';
-  }
+  // In solo mode, hide timer (uses stopwatch instead)
+  document.getElementById('timerField').style.display = isSolo ? 'none' : '';
 }
 
 function getModeLabel(mode) {
@@ -492,7 +493,10 @@ let gameState = {
   timerDuration: 0,
   timerRemaining: 0,
   timerInterval: null,
-  wrongResetTimeout: null  // captured for undo
+  wrongResetTimeout: null,  // captured for undo
+  stopwatchStart: 0,
+  stopwatchInterval: null,
+  stopwatchElapsed: 0
 };
 
 const channel = new BroadcastChannel('scripture-sequence');
@@ -558,29 +562,11 @@ function updateTimerDisplay() {
 
 function timerExpired() {
   if (gameState.phase !== 'playing') return;
-
-  // In solo mode, timer expiry ends the game even during a locked state
-  if (gameState.mode === 'solo') {
-    if (gameState.wrongResetTimeout) { clearTimeout(gameState.wrongResetTimeout); gameState.wrongResetTimeout = null; }
-    gameState.locked = false;
-  }
-
   if (gameState.locked) return;
+  if (gameState.mode === 'solo') return; // Solo uses stopwatch, no expiry
   SoundEngine.wrong();
 
-  if (gameState.mode === 'solo') {
-    // Solo mode: game over - time ran out
-    gameState.phase = 'celebration'; // reuse celebration phase for end state
-    gameState.lastAction = null;
-    hideUndoBtn();
-    renderGame();
-    channel.postMessage({ type: 'solo_time_up', state: getDisplayState() });
-    channel.postMessage({ type: 'timer_stop' });
-    toast('Time\'s up! Verse not completed.', 'error');
-    return;
-  }
-
-  // 2-player mode: reset tiles and switch player
+  // 2-player/race mode: reset tiles and switch player
   gameState.tiles.forEach(t => {
     if (t.state === 'found') t.state = 'hidden';
   });
@@ -594,6 +580,44 @@ function timerExpired() {
   channel.postMessage({ type: 'timer_stop' });
   toast('Time\'s up!', 'error');
   startTurnTimer();
+}
+
+// ============================================================
+// STOPWATCH (Solo mode)
+// ============================================================
+function formatStopwatch(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const tenths = Math.floor((seconds % 1) * 10);
+  return `${mins}:${secs.toString().padStart(2, '0')}.${tenths}`;
+}
+
+function startStopwatch() {
+  stopStopwatch();
+  gameState.stopwatchStart = Date.now();
+  gameState.stopwatchElapsed = 0;
+  updateStopwatchDisplay();
+  channel.postMessage({ type: 'stopwatch_start' });
+  gameState.stopwatchInterval = setInterval(() => {
+    gameState.stopwatchElapsed = (Date.now() - gameState.stopwatchStart) / 1000;
+    updateStopwatchDisplay();
+    channel.postMessage({ type: 'stopwatch_tick', elapsed: gameState.stopwatchElapsed });
+  }, 100);
+}
+
+function stopStopwatch() {
+  if (gameState.stopwatchInterval) {
+    clearInterval(gameState.stopwatchInterval);
+    gameState.stopwatchInterval = null;
+  }
+  return gameState.stopwatchElapsed || 0;
+}
+
+function updateStopwatchDisplay() {
+  const el = document.getElementById('statusTimer');
+  el.textContent = formatStopwatch(gameState.stopwatchElapsed);
+  el.className = 'status-item timer-display';
+  el.style.color = '#4caf50';
 }
 
 // ============================================================
@@ -760,11 +784,6 @@ function startRound() {
   const mode = document.getElementById('gameMode').value;
   const isSolo = mode === 'solo';
 
-  // Solo mode requires a timer
-  if (isSolo && (parseInt(document.getElementById('timerDuration').value) || 0) === 0) {
-    return toast('Solo mode requires a timer. Set a timer duration.', 'error');
-  }
-
   gameState.phase = 'playing';
   gameState.mode = mode;
   gameState.verse = verse;
@@ -785,11 +804,16 @@ function startRound() {
   hideUndoBtn();
   renderGame();
   channel.postMessage({ type: 'new_round', state: getDisplayState() });
-  startTurnTimer();
+  if (isSolo) {
+    startStopwatch();
+  } else {
+    startTurnTimer();
+  }
 }
 
 function resetGame() {
   stopTurnTimer();
+  stopStopwatch();
   if (gameState.wrongResetTimeout) clearTimeout(gameState.wrongResetTimeout);
   gameState.phase = 'idle';
   gameState.tiles = [];
@@ -832,7 +856,7 @@ function onTileClick(tileId) {
   const isSolo = mode === 'solo';
   const isRace = mode === 'race';
 
-  // In solo mode timer runs continuously; in others it resets per pick
+  // In solo mode stopwatch runs continuously; in others timer resets per pick
   if (!isSolo) stopTurnTimer();
   const neededWord = gameState.words[gameState.currentWordIndex];
 
@@ -853,6 +877,7 @@ function onTileClick(tileId) {
     if (gameState.currentWordIndex >= gameState.words.length) {
       // VERSE COMPLETE
       stopTurnTimer();
+      const finalTime = stopStopwatch();
       // In classic/solo, completing verse = 1 point
       if (!isRace) gameState.players[gameState.currentPlayerIndex].score++;
       gameState.phase = 'celebration';
@@ -861,9 +886,12 @@ function onTileClick(tileId) {
       renderGame();
       channel.postMessage({
         type: 'verse_complete', tileIndex: tile.id,
-        playerIndex: gameState.currentPlayerIndex, state: getDisplayState()
+        playerIndex: gameState.currentPlayerIndex,
+        state: getDisplayState(),
+        soloTime: isSolo ? finalTime : null
       });
       channel.postMessage({ type: 'timer_stop' });
+      if (isSolo) channel.postMessage({ type: 'stopwatch_stop', elapsed: finalTime });
       return;
     }
 
@@ -918,6 +946,7 @@ function onTileClick(tileId) {
 
 function nextRound() {
   stopTurnTimer();
+  stopStopwatch();
   gameState.phase = 'idle';
   gameState.lastAction = null;
   document.getElementById('passBtn').style.display = 'none';
@@ -942,7 +971,8 @@ function getDisplayState() {
     totalWords: gameState.words.length,
     currentWordIndex: gameState.currentWordIndex,
     players: gameState.players.map(p => ({ name: p.name, score: p.score })),
-    currentPlayerIndex: gameState.currentPlayerIndex
+    currentPlayerIndex: gameState.currentPlayerIndex,
+    stopwatchElapsed: gameState.stopwatchElapsed
   };
 }
 
@@ -974,9 +1004,9 @@ function renderGame() {
   const isRace = gameState.mode === 'race';
   if (gameState.phase === 'celebration') {
     if (isSolo) {
-      document.getElementById('statusTurn').innerHTML = gameState.currentWordIndex >= gameState.words.length
-        ? `<strong style="color:#4caf50">${esc(cp.name)} completed the verse!</strong>`
-        : `<strong style="color:#e74c3c">Time's Up!</strong>`;
+      const timeStr = formatStopwatch(gameState.stopwatchElapsed);
+      document.getElementById('statusTurn').innerHTML =
+        `<strong style="color:#4caf50">${esc(cp.name)} completed in ${timeStr}!</strong>`;
     } else if (isRace) {
       const p1 = gameState.players[0], p2 = gameState.players[1];
       const winner = p1.score > p2.score ? p1.name : p2.score > p1.score ? p2.name : 'Tie';
@@ -1082,8 +1112,53 @@ document.getElementById('verseText').addEventListener('input', (e) => {
 });
 
 // ============================================================
+// DEFAULT KJV VERSES
+// ============================================================
+const DEFAULT_VERSES = [
+  { reference: "Philippians 4:13", text: "I can do all things through Christ which strengtheneth me." },
+  { reference: "Psalm 56:3", text: "What time I am afraid, I will trust in thee." },
+  { reference: "1 Peter 5:7", text: "Casting all your care upon him; for he careth for you." },
+  { reference: "Psalm 46:1", text: "God is our refuge and strength, a very present help in trouble." },
+  { reference: "Proverbs 15:1", text: "A soft answer turneth away wrath: but grievous words stir up anger." },
+  { reference: "1 John 4:8", text: "He that loveth not knoweth not God; for God is love." },
+  { reference: "Proverbs 16:3", text: "Commit thy works unto the LORD, and thy thoughts shall be established." },
+  { reference: "Romans 10:17", text: "So then faith cometh by hearing, and hearing by the word of God." },
+  { reference: "Proverbs 3:6", text: "In all thy ways acknowledge him, and he shall direct thy paths." },
+  { reference: "Psalm 150:6", text: "Let every thing that hath breath praise the LORD. Praise ye the LORD." },
+  { reference: "James 4:7", text: "Submit yourselves therefore to God. Resist the devil, and he will flee from you." },
+  { reference: "Proverbs 4:23", text: "Keep thy heart with all diligence; for out of it are the issues of life." },
+  { reference: "Psalm 119:105", text: "Thy word is a lamp unto my feet, and a light unto my path." },
+  { reference: "Psalm 145:9", text: "The LORD is good to all: and his tender mercies are over all his works." },
+  { reference: "Ephesians 6:10", text: "Finally, my brethren, be strong in the Lord, and in the power of his might." },
+  { reference: "Proverbs 3:5", text: "Trust in the LORD with all thine heart; and lean not unto thine own understanding." },
+  { reference: "Hebrews 11:1", text: "Now faith is the substance of things hoped for, the evidence of things not seen." },
+  { reference: "Proverbs 1:7", text: "The fear of the LORD is the beginning of knowledge: but fools despise wisdom and instruction." },
+  { reference: "Psalm 34:1", text: "I will bless the LORD at all times: his praise shall continually be in my mouth." },
+  { reference: "Colossians 3:23", text: "And whatsoever ye do, do it heartily, as to the Lord, and not unto men;" }
+];
+
+function loadDefaultVerses() {
+  let added = 0;
+  DEFAULT_VERSES.forEach(dv => {
+    if (!verses.find(v => v.reference === dv.reference)) {
+      verses.push({ id: Date.now() + added, reference: dv.reference, text: dv.text });
+      added++;
+    }
+  });
+  if (added > 0) { saveVerses(); toast(`Loaded ${added} KJV verses`, 'success'); }
+  else { toast('All default verses already loaded', 'info'); }
+}
+
+// ============================================================
 // INIT
 // ============================================================
+// Auto-load default verses on first visit
+if (verses.length === 0) {
+  DEFAULT_VERSES.forEach((dv, i) => {
+    verses.push({ id: Date.now() + i, reference: dv.reference, text: dv.text });
+  });
+  saveVerses();
+}
 renderVerseList();
 renderVerseSelect();
 renderGame();

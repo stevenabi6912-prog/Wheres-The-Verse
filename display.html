@@ -130,6 +130,22 @@
   }
   .timer-bar.warning { background: var(--wrong); }
 
+  /* ====== STOPWATCH ====== */
+  .stopwatch-container {
+    text-align: center; margin-top: 6px;
+    opacity: 0; transition: opacity 0.3s;
+    height: 0; overflow: hidden;
+  }
+  .stopwatch-container.active { opacity: 1; height: auto; }
+  .stopwatch-time {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 4vw, 52px);
+    font-weight: 900;
+    color: var(--gold-light);
+    text-shadow: 0 0 20px color-mix(in srgb, var(--gold) 30%, transparent);
+    letter-spacing: 3px;
+  }
+
   /* ====== TILE GRID ====== */
   .tile-area {
     flex: 1; display: flex; align-items: center; justify-content: center;
@@ -393,6 +409,9 @@
     <div class="timer-bar-container" id="timerBarContainer">
       <div class="timer-bar" id="timerBar"></div>
     </div>
+    <div class="stopwatch-container" id="stopwatchContainer">
+      <span class="stopwatch-time" id="stopwatchTime">0:00.0</span>
+    </div>
   </div>
 
   <div class="tile-area">
@@ -575,6 +594,29 @@ function hideTimer() {
 }
 
 // ============================================================
+// STOPWATCH DISPLAY
+// ============================================================
+function formatStopwatch(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const tenths = Math.floor((seconds % 1) * 10);
+  return `${mins}:${secs.toString().padStart(2, '0')}.${tenths}`;
+}
+
+function showStopwatch() {
+  document.getElementById('stopwatchContainer').classList.add('active');
+}
+
+function hideStopwatch() {
+  document.getElementById('stopwatchContainer').classList.remove('active');
+  document.getElementById('stopwatchTime').textContent = '0:00.0';
+}
+
+function updateStopwatch(elapsed) {
+  document.getElementById('stopwatchTime').textContent = formatStopwatch(elapsed);
+}
+
+// ============================================================
 // CHANNEL LISTENER
 // ============================================================
 channel.onmessage = (e) => {
@@ -640,7 +682,7 @@ channel.onmessage = (e) => {
         if (flipProcessing) { setTimeout(waitForQueue, 100); return; }
         setTimeout(() => {
           updatePlayers();
-          showCelebration(msg.playerIndex);
+          showCelebration(msg.playerIndex, msg.soloTime);
           SoundEngine.celebration();
         }, 400);
       };
@@ -668,6 +710,7 @@ channel.onmessage = (e) => {
       showWaitingScreen();
       hideCelebration();
       hideTimer();
+      hideStopwatch();
       break;
 
     case 'set_theme':
@@ -680,6 +723,18 @@ channel.onmessage = (e) => {
 
     case 'timer_stop':
       hideTimer();
+      break;
+
+    case 'stopwatch_start':
+      showStopwatch();
+      break;
+
+    case 'stopwatch_tick':
+      updateStopwatch(msg.elapsed);
+      break;
+
+    case 'stopwatch_stop':
+      updateStopwatch(msg.elapsed);
       break;
 
     case 'undo_correct':
@@ -838,11 +893,17 @@ function showWrongFlash() {
 // ============================================================
 // CELEBRATION
 // ============================================================
-function showCelebration(playerIndex) {
+function showCelebration(playerIndex, soloTime) {
   const player = displayState.players[playerIndex];
+  const isSolo = displayState.mode === 'solo';
   const isRace = displayState.mode === 'race';
 
-  if (isRace) {
+  if (isSolo && soloTime != null) {
+    document.getElementById('celebrationTitle').textContent = 'Verse Complete!';
+    document.getElementById('celebrationSub').textContent =
+      player.name + ' finished in ' + formatStopwatch(soloTime) + '!';
+    hideStopwatch();
+  } else if (isRace) {
     const p1 = displayState.players[0], p2 = displayState.players[1];
     const winner = p1.score > p2.score ? p1.name : p2.score > p1.score ? p2.name : null;
     document.getElementById('celebrationTitle').textContent = 'Verse Complete!';
