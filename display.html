@@ -652,7 +652,9 @@ channel.onmessage = (e) => {
     case 'reset_tiles':
       displayState = msg.state;
       animateResetTiles();
-      showTurnFlash(displayState.players[displayState.currentPlayerIndex].name + "'s Turn");
+      if (displayState.mode !== 'solo') {
+        showTurnFlash(displayState.players[displayState.currentPlayerIndex].name + "'s Turn");
+      }
       break;
 
     case 'timer_expired':
@@ -660,7 +662,9 @@ channel.onmessage = (e) => {
       showWrongFlash();
       SoundEngine.wrong();
       animateResetTiles();
-      showTurnFlash("Time's Up! " + displayState.players[displayState.currentPlayerIndex].name + "'s Turn");
+      if (displayState.mode !== 'solo') {
+        showTurnFlash("Time's Up! " + displayState.players[displayState.currentPlayerIndex].name + "'s Turn");
+      }
       break;
 
     case 'race_wrong_reset':

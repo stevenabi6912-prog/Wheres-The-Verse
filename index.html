@@ -922,6 +922,7 @@ function onTileClick(tileId) {
       }, 1500);
     } else {
       // CLASSIC / SOLO: reset all found tiles
+      const resetDelay = isSolo ? 1000 : 2000;
       gameState.wrongResetTimeout = setTimeout(() => {
         gameState.tiles.forEach(t => {
           if (t.state === 'found' || t.state === 'revealed') t.state = 'hidden';
@@ -936,7 +937,7 @@ function onTileClick(tileId) {
         renderGame();
         channel.postMessage({ type: 'reset_tiles', state: getDisplayState() });
         if (!isSolo) startTurnTimer();
-      }, 2000);
+      }, resetDelay);
     }
 
     gameState.lastAction = { type: 'wrong', tileId: tile.id };
