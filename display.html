@@ -638,6 +638,7 @@ channel.onmessage = (e) => {
       queueFlip(msg.tileIndex, () => {
         animateCorrectPick(msg.tileIndex);
         updateFoundWords();
+        updatePlayers();
         SoundEngine.correct();
       });
       break;

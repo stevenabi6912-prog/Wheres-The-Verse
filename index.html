@@ -1029,7 +1029,7 @@ function renderGame() {
     gameState.phase === 'playing'
       ? `<span class="looking-for">Word ${gameState.currentWordIndex + 1}: "<strong>${esc(gameState.words[gameState.currentWordIndex])}</strong>"</span>`
       : '';
-  const scoreLabel = isRace ? 'pts' : '';
+  const scoreLabel = (isRace || (!isSolo && gameState.phase === 'playing')) ? ' pts' : '';
   document.getElementById('statusScore').innerHTML = isSolo
     ? ''
     : `<strong>${esc(gameState.players[0].name)}</strong>: ${gameState.players[0].score}${scoreLabel} | <strong>${esc(gameState.players[1].name)}</strong>: ${gameState.players[1].score}${scoreLabel}`;
