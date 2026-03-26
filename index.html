@@ -101,8 +101,8 @@
   .op-tile.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
   .op-tile .tile-num { position: absolute; top: 4px; left: 8px; font-size: 16px; color: #a0c0e0; font-weight: 800; }
   .op-tile .tile-word { font-size: 13px; text-align: center; padding: 0 4px; }
-  .op-tile .tile-answer { font-size: 10px; color: #aab8c8; margin-top: 2px; opacity: 0; transition: opacity 0.2s; }
-  .show-answers .op-tile .tile-answer { opacity: 1; }
+  .op-tile .tile-order { position: absolute; top: 4px; right: 8px; font-size: 11px; color: #e0b854; font-weight: 700; }
+  .op-tile .tile-answer { font-size: 10px; color: #aab8c8; margin-top: 2px; }
 
   .found-words-bar {
     background: #0f3460; border-radius: 6px; padding: 10px 14px;
@@ -254,10 +254,6 @@
     <div class="panel" id="gamePanel">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <h2 id="verseRefDisplay" style="margin:0;"></h2>
-        <label class="toggle">
-          <input type="checkbox" id="showAnswers" onchange="toggleAnswers()">
-          Show Answer Key
-        </label>
       </div>
       <div class="tile-grid-operator" id="tileGrid">
         <div class="empty-msg">Select a verse and click Start Round to begin</div>
@@ -1017,8 +1013,12 @@ function renderGame() {
         ? `<strong style="color:#d4a843">It's a Tie! ${p1.score} - ${p2.score}</strong>`
         : `<strong style="color:#4caf50">${esc(winner)} wins ${p1.score} - ${p2.score}!</strong>`;
     } else {
-      document.getElementById('statusTurn').innerHTML =
-        `<strong style="color:#4caf50">${esc(cp.name)} completed the verse!</strong>`;
+      // Classic mode: winner is whoever has the most points
+      const p1 = gameState.players[0], p2 = gameState.players[1];
+      const winner = p1.score > p2.score ? p1.name : p2.score > p1.score ? p2.name : 'Tie';
+      document.getElementById('statusTurn').innerHTML = winner === 'Tie'
+        ? `<strong style="color:#d4a843">It's a Tie! ${p1.score} - ${p2.score}</strong>`
+        : `<strong style="color:#4caf50">${esc(winner)} wins! ${p1.score} - ${p2.score}</strong>`;
     }
   } else {
     document.getElementById('statusTurn').innerHTML = isSolo
@@ -1054,8 +1054,10 @@ function renderGame() {
     const wordDisplay = tile.state !== 'hidden' ? esc(tile.word) : '';
     const key = keyLabels[keyIndex] || '';
     keyIndex++;
+    const verseOrder = tile.wordIndex + 1;
     return `<div class="op-tile ${stateClass} ${disabled}" onclick="onTileClick(${tile.id})" data-key="${key}">
       <span class="tile-num">${tileNum}</span>
+      <span class="tile-order">${verseOrder}</span>
       <span class="tile-word">${wordDisplay || '?'}</span>
       <span class="tile-answer">${esc(tile.word)}</span>
       <span class="key-hint">${key}</span>
@@ -1074,10 +1076,6 @@ function renderGame() {
   }).join(' ');
 
   keyHint.textContent = gameState.phase === 'playing' ? 'Press a key (1-9, 0, a-z) to flip that tile' : '';
-}
-
-function toggleAnswers() {
-  document.getElementById('gamePanel').classList.toggle('show-answers', document.getElementById('showAnswers').checked);
 }
 
 // ============================================================

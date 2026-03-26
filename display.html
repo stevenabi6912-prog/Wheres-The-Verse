@@ -916,8 +916,13 @@ function showCelebration(playerIndex, soloTime) {
       ? winner + ' wins ' + p1.score + ' - ' + p2.score + '!'
       : "It's a tie! " + p1.score + ' - ' + p2.score;
   } else {
+    // Classic mode: winner is whoever has the most points
+    const p1 = displayState.players[0], p2 = displayState.players[1];
+    const winner = p1.score > p2.score ? p1.name : p2.score > p1.score ? p2.name : null;
     document.getElementById('celebrationTitle').textContent = 'Verse Complete!';
-    document.getElementById('celebrationSub').textContent = player.name + ' found the verse!';
+    document.getElementById('celebrationSub').textContent = winner
+      ? winner + ' wins! ' + p1.score + ' - ' + p2.score
+      : "It's a tie! " + p1.score + ' - ' + p2.score;
   }
 
   const verseText = displayState.verseText || displayState.foundWords.join(' ');
