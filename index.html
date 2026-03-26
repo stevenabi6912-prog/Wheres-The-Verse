@@ -734,6 +734,10 @@ function undoLastPick() {
     if (tile) tile.state = 'hidden';
     gameState.currentWordIndex = action.prevWordIndex;
     gameState.foundWords.pop();
+    // Restore score if it was incremented
+    if (action.prevScore !== undefined) {
+      gameState.players[gameState.currentPlayerIndex].score = action.prevScore;
+    }
     gameState.lastAction = null;
     hideUndoBtn();
     renderGame();
@@ -869,8 +873,8 @@ function onTileClick(tileId) {
     SoundEngine.correct();
     showUndoBtn();
 
-    // In race mode, each correct word = 1 point for current player
-    if (isRace) {
+    // Every correct word = 1 point for current player (all modes)
+    if (!isSolo) {
       gameState.players[gameState.currentPlayerIndex].score++;
     }
 
@@ -878,8 +882,6 @@ function onTileClick(tileId) {
       // VERSE COMPLETE
       stopTurnTimer();
       const finalTime = stopStopwatch();
-      // In classic/solo, completing verse = 1 point
-      if (!isRace) gameState.players[gameState.currentPlayerIndex].score++;
       gameState.phase = 'celebration';
       SoundEngine.celebration();
       hideUndoBtn();
