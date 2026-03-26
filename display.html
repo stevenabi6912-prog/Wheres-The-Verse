@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Where's the Verse</title>
+<title>Scripture Sequence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Lora:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -380,7 +380,7 @@
 <!-- WAITING SCREEN -->
 <div class="waiting-screen" id="waitingScreen">
   <div class="cross-watermark">&cross;</div>
-  <h1>Where's the Verse</h1>
+  <h1>Scripture Sequence</h1>
   <p>Waiting for the game to begin...</p>
   <p class="fullscreen-hint" id="fullscreenHint">Press F for fullscreen</p>
 </div>
@@ -388,7 +388,7 @@
 <!-- GAME SCREEN -->
 <div class="game-screen" id="gameScreen">
   <div class="game-header">
-    <div class="game-title">Where's the Verse</div>
+    <div class="game-title">Scripture Sequence</div>
     <div class="verse-reference" id="verseRef"></div>
     <div class="timer-bar-container" id="timerBarContainer">
       <div class="timer-bar" id="timerBar"></div>
@@ -426,7 +426,7 @@
 // ============================================================
 let displayState = null;
 let tileElements = {};
-const channel = new BroadcastChannel('wheres-the-verse');
+const channel = new BroadcastChannel('scripture-sequence');
 
 // ============================================================
 // FULLSCREEN
@@ -619,6 +619,14 @@ channel.onmessage = (e) => {
       SoundEngine.wrong();
       animateResetTiles();
       showTurnFlash("Time's Up! " + displayState.players[displayState.currentPlayerIndex].name + "'s Turn");
+      break;
+
+    case 'race_wrong_reset':
+      displayState = msg.state;
+      // Only flip back the wrong tile, found tiles stay
+      undoWrongOnDisplay(msg.tileId);
+      updatePlayers();
+      showTurnFlash(displayState.players[displayState.currentPlayerIndex].name + "'s Turn");
       break;
 
     case 'verse_complete':
@@ -832,8 +840,20 @@ function showWrongFlash() {
 // ============================================================
 function showCelebration(playerIndex) {
   const player = displayState.players[playerIndex];
-  document.getElementById('celebrationTitle').textContent = 'Verse Complete!';
-  document.getElementById('celebrationSub').textContent = player.name + ' found the verse!';
+  const isRace = displayState.mode === 'race';
+
+  if (isRace) {
+    const p1 = displayState.players[0], p2 = displayState.players[1];
+    const winner = p1.score > p2.score ? p1.name : p2.score > p1.score ? p2.name : null;
+    document.getElementById('celebrationTitle').textContent = 'Verse Complete!';
+    document.getElementById('celebrationSub').textContent = winner
+      ? winner + ' wins ' + p1.score + ' - ' + p2.score + '!'
+      : "It's a tie! " + p1.score + ' - ' + p2.score;
+  } else {
+    document.getElementById('celebrationTitle').textContent = 'Verse Complete!';
+    document.getElementById('celebrationSub').textContent = player.name + ' found the verse!';
+  }
+
   const verseText = displayState.verseText || displayState.foundWords.join(' ');
   document.getElementById('celebrationVerse').textContent =
     displayState.verseReference + ' \u2014 ' + verseText;

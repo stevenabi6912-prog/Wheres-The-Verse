@@ -12,6 +12,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
-        print(f"\n  Where's the Verse is running!")
+        print(f"\n  Scripture Sequence is running!")
         print(f"  Open http://localhost:{PORT} in your browser\n")
         httpd.serve_forever()

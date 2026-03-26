@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Where's the Verse - Operator</title>
+<title>Scripture Sequence - Operator</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -141,7 +141,7 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <div class="top-bar">
-  <h1>Where's the Verse</h1>
+  <h1>Scripture Sequence</h1>
   <span style="color:#556;font-size:12px;">Operator Panel</span>
   <div class="spacer"></div>
   <div style="display:flex;align-items:center;gap:4px;">
@@ -204,7 +204,8 @@
         <div class="field" style="min-width:90px;max-width:110px;">
           <label>Mode</label>
           <select id="gameMode" onchange="onModeChange()">
-            <option value="2player">2 Player</option>
+            <option value="2player">Classic</option>
+            <option value="race">Race</option>
             <option value="solo">Solo Timed</option>
           </select>
         </div>
@@ -321,12 +322,12 @@ const THEMES = {
 
 function changeTheme() {
   const theme = document.getElementById('themeSelect').value;
-  localStorage.setItem('wtv_theme', theme);
+  localStorage.setItem('ss_theme', theme);
   channel.postMessage({ type: 'set_theme', theme, vars: THEMES[theme] });
 }
 
 function initTheme() {
-  const saved = localStorage.getItem('wtv_theme') || 'classic';
+  const saved = localStorage.getItem('ss_theme') || 'classic';
   document.getElementById('themeSelect').value = saved;
   // Send theme to display on load
   setTimeout(() => channel.postMessage({ type: 'set_theme', theme: saved, vars: THEMES[saved] }), 500);
@@ -466,13 +467,17 @@ function onModeChange() {
   }
 }
 
+function getModeLabel(mode) {
+  return mode === 'race' ? 'Race' : mode === 'solo' ? 'Solo' : 'Classic';
+}
+
 // ============================================================
 // GAME STATE
 // ============================================================
-let verses = JSON.parse(localStorage.getItem('wtv_verses') || '[]');
+let verses = JSON.parse(localStorage.getItem('ss_verses') || '[]');
 let gameState = {
   phase: 'idle',
-  mode: '2player', // '2player' or 'solo'
+  mode: '2player', // '2player', 'race', or 'solo'
   verse: null,
   words: [],
   tiles: [],
@@ -490,11 +495,11 @@ let gameState = {
   wrongResetTimeout: null  // captured for undo
 };
 
-const channel = new BroadcastChannel('wheres-the-verse');
+const channel = new BroadcastChannel('scripture-sequence');
 
 channel.onmessage = (e) => {
   if (e.data.type === 'request_sync') {
-    const theme = localStorage.getItem('wtv_theme') || 'classic';
+    const theme = localStorage.getItem('ss_theme') || 'classic';
     channel.postMessage({ type: 'set_theme', theme, vars: THEMES[theme] });
     if (gameState.phase !== 'idle') {
       channel.postMessage({ type: 'new_round', state: getDisplayState() });
@@ -587,7 +592,7 @@ function timerExpired() {
 // VERSE MANAGEMENT
 // ============================================================
 function saveVerses() {
-  localStorage.setItem('wtv_verses', JSON.stringify(verses));
+  localStorage.setItem('ss_verses', JSON.stringify(verses));
   renderVerseList();
   renderVerseSelect();
 }
@@ -815,23 +820,33 @@ function onTileClick(tileId) {
   const tile = gameState.tiles.find(t => t.id === tileId);
   if (!tile || tile.state === 'found') return;
 
-  const isSolo = gameState.mode === 'solo';
-  // In solo mode timer runs continuously; in 2-player it resets per pick
+  const mode = gameState.mode;
+  const isSolo = mode === 'solo';
+  const isRace = mode === 'race';
+
+  // In solo mode timer runs continuously; in others it resets per pick
   if (!isSolo) stopTurnTimer();
   const neededWord = gameState.words[gameState.currentWordIndex];
 
   if (tile.word === neededWord) {
     // CORRECT
-    gameState.lastAction = { type: 'correct', tileId: tile.id, prevWordIndex: gameState.currentWordIndex };
+    gameState.lastAction = { type: 'correct', tileId: tile.id, prevWordIndex: gameState.currentWordIndex, prevScore: gameState.players[gameState.currentPlayerIndex].score };
     tile.state = 'found';
     gameState.foundWords.push(tile.word);
     gameState.currentWordIndex++;
     SoundEngine.correct();
     showUndoBtn();
 
-    if (gameState.currentWordIndex >= gameState.words.length) {
-      stopTurnTimer();
+    // In race mode, each correct word = 1 point for current player
+    if (isRace) {
       gameState.players[gameState.currentPlayerIndex].score++;
+    }
+
+    if (gameState.currentWordIndex >= gameState.words.length) {
+      // VERSE COMPLETE
+      stopTurnTimer();
+      // In classic/solo, completing verse = 1 point
+      if (!isRace) gameState.players[gameState.currentPlayerIndex].score++;
       gameState.phase = 'celebration';
       SoundEngine.celebration();
       hideUndoBtn();
@@ -855,22 +870,38 @@ function onTileClick(tileId) {
     renderGame();
     channel.postMessage({ type: 'wrong_pick', tileIndex: tile.id, revealedWord: tile.word });
 
-    gameState.wrongResetTimeout = setTimeout(() => {
-      gameState.tiles.forEach(t => {
-        if (t.state === 'found' || t.state === 'revealed') t.state = 'hidden';
-      });
-      gameState.foundWords = [];
-      gameState.currentWordIndex = 0;
-      // In solo mode, same player continues; in 2-player, switch
-      if (!isSolo) gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % 2;
-      gameState.locked = false;
-      gameState.lastAction = null;
-      gameState.wrongResetTimeout = null;
-      hideUndoBtn();
-      renderGame();
-      channel.postMessage({ type: 'reset_tiles', state: getDisplayState() });
-      if (!isSolo) startTurnTimer();
-    }, 2000);
+    if (isRace) {
+      // RACE MODE: wrong tile flips back, but found words STAY, switch player
+      gameState.wrongResetTimeout = setTimeout(() => {
+        // Only flip back the wrong tile, keep found tiles
+        tile.state = 'hidden';
+        gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % 2;
+        gameState.locked = false;
+        gameState.lastAction = null;
+        gameState.wrongResetTimeout = null;
+        hideUndoBtn();
+        renderGame();
+        channel.postMessage({ type: 'race_wrong_reset', tileId: tile.id, state: getDisplayState() });
+        startTurnTimer();
+      }, 1500);
+    } else {
+      // CLASSIC / SOLO: reset all found tiles
+      gameState.wrongResetTimeout = setTimeout(() => {
+        gameState.tiles.forEach(t => {
+          if (t.state === 'found' || t.state === 'revealed') t.state = 'hidden';
+        });
+        gameState.foundWords = [];
+        gameState.currentWordIndex = 0;
+        if (!isSolo) gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % 2;
+        gameState.locked = false;
+        gameState.lastAction = null;
+        gameState.wrongResetTimeout = null;
+        hideUndoBtn();
+        renderGame();
+        channel.postMessage({ type: 'reset_tiles', state: getDisplayState() });
+        if (!isSolo) startTurnTimer();
+      }, 2000);
+    }
 
     gameState.lastAction = { type: 'wrong', tileId: tile.id };
     showUndoBtn();
@@ -932,12 +963,22 @@ function renderGame() {
   refDisplay.textContent = gameState.verse.reference;
   const cp = gameState.players[gameState.currentPlayerIndex];
   const isSolo = gameState.mode === 'solo';
+  const isRace = gameState.mode === 'race';
   if (gameState.phase === 'celebration') {
-    document.getElementById('statusTurn').innerHTML = isSolo
-      ? (gameState.currentWordIndex >= gameState.words.length
-          ? `<strong style="color:#4caf50">${esc(cp.name)} completed the verse!</strong>`
-          : `<strong style="color:#e74c3c">Time's Up!</strong>`)
-      : `<strong style="color:#4caf50">${esc(cp.name)} completed the verse!</strong>`;
+    if (isSolo) {
+      document.getElementById('statusTurn').innerHTML = gameState.currentWordIndex >= gameState.words.length
+        ? `<strong style="color:#4caf50">${esc(cp.name)} completed the verse!</strong>`
+        : `<strong style="color:#e74c3c">Time's Up!</strong>`;
+    } else if (isRace) {
+      const p1 = gameState.players[0], p2 = gameState.players[1];
+      const winner = p1.score > p2.score ? p1.name : p2.score > p1.score ? p2.name : 'Tie';
+      document.getElementById('statusTurn').innerHTML = winner === 'Tie'
+        ? `<strong style="color:#d4a843">It's a Tie! ${p1.score} - ${p2.score}</strong>`
+        : `<strong style="color:#4caf50">${esc(winner)} wins ${p1.score} - ${p2.score}!</strong>`;
+    } else {
+      document.getElementById('statusTurn').innerHTML =
+        `<strong style="color:#4caf50">${esc(cp.name)} completed the verse!</strong>`;
+    }
   } else {
     document.getElementById('statusTurn').innerHTML = isSolo
       ? `<span class="active-player">${esc(cp.name)}</span>`
@@ -947,8 +988,10 @@ function renderGame() {
     gameState.phase === 'playing'
       ? `<span class="looking-for">Word ${gameState.currentWordIndex + 1}: "<strong>${esc(gameState.words[gameState.currentWordIndex])}</strong>"</span>`
       : '';
-  document.getElementById('statusScore').innerHTML =
-    `<strong>${esc(gameState.players[0].name)}</strong>: ${gameState.players[0].score} | <strong>${esc(gameState.players[1].name)}</strong>: ${gameState.players[1].score}`;
+  const scoreLabel = isRace ? 'pts' : '';
+  document.getElementById('statusScore').innerHTML = isSolo
+    ? ''
+    : `<strong>${esc(gameState.players[0].name)}</strong>: ${gameState.players[0].score}${scoreLabel} | <strong>${esc(gameState.players[1].name)}</strong>: ${gameState.players[1].score}${scoreLabel}`;
   document.getElementById('statusProgress').textContent =
     `${gameState.foundWords.length} / ${gameState.words.length} words`;
 
