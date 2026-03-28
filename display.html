@@ -64,31 +64,101 @@
     flex: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     position: relative; z-index: 1;
+    overflow: hidden;
   }
+
+  /* ---- Animated Background Layers ---- */
+  .waiting-bg {
+    position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  }
+
+  /* Slow-moving light rays from center */
+  .waiting-bg .ray {
+    position: absolute; top: 50%; left: 50%;
+    width: 3px; height: 140%; transform-origin: 0 0;
+    background: linear-gradient(to top, transparent 0%, var(--gold) 40%, transparent 100%);
+    opacity: 0;
+    animation: rayRotate var(--dur) linear infinite, rayFade var(--fade) ease-in-out infinite;
+  }
+  @keyframes rayRotate {
+    from { transform: rotate(var(--start)); }
+    to   { transform: rotate(calc(var(--start) + 360deg)); }
+  }
+  @keyframes rayFade {
+    0%, 100% { opacity: 0; }
+    30%, 70% { opacity: var(--peak); }
+  }
+
+  /* Floating particles (crosses & sparkles) */
+  .waiting-bg .particle {
+    position: absolute; font-size: var(--size);
+    color: var(--gold); opacity: 0;
+    animation: particleFloat var(--dur) ease-in-out infinite;
+    animation-delay: var(--delay);
+    text-shadow: 0 0 10px currentColor;
+  }
+  @keyframes particleFloat {
+    0%   { transform: translateY(110vh) scale(0.3); opacity: 0; }
+    10%  { opacity: var(--peak); }
+    90%  { opacity: var(--peak); }
+    100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+  }
+
+  /* Pulsing glow ring behind title */
+  .waiting-glow {
+    position: absolute; width: 500px; height: 500px;
+    border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, var(--gold) 0%, transparent 70%);
+    opacity: 0.06;
+    animation: glowPulse 4s ease-in-out infinite;
+  }
+  @keyframes glowPulse {
+    0%, 100% { transform: scale(0.8); opacity: 0.04; }
+    50%      { transform: scale(1.2); opacity: 0.1; }
+  }
+
+  /* Title styling */
   .waiting-screen h1 {
     font-family: 'Playfair Display', serif;
     font-size: clamp(48px, 8vw, 96px); font-weight: 900;
     color: var(--gold);
-    text-shadow: 0 0 40px rgba(212, 168, 67, 0.3), 0 4px 12px rgba(0,0,0,0.5);
+    text-shadow:
+      0 0 60px color-mix(in srgb, var(--gold) 50%, transparent),
+      0 0 120px color-mix(in srgb, var(--gold) 20%, transparent),
+      0 4px 12px rgba(0,0,0,0.5);
     letter-spacing: 2px; text-align: center;
+    position: relative; z-index: 2;
+    animation: titleShimmer 4s ease-in-out infinite;
   }
+  @keyframes titleShimmer {
+    0%, 100% { filter: brightness(1); }
+    50%      { filter: brightness(1.2); }
+  }
+
   .waiting-screen p {
     font-family: 'Lora', serif;
     font-size: clamp(16px, 2.5vw, 28px);
     color: var(--text-dim); margin-top: 16px; font-style: italic;
+    position: relative; z-index: 2;
   }
   .fullscreen-hint {
     font-size: clamp(12px, 1.5vw, 18px); color: var(--text-dim);
     margin-top: 40px; opacity: 0.5;
     animation: hintPulse 3s ease infinite;
+    position: relative; z-index: 2;
   }
   @keyframes hintPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.7; } }
   body:fullscreen .fullscreen-hint { display: none; }
   .cross-watermark {
     position: absolute; top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 300px; opacity: 0.03;
-    color: var(--gold); pointer-events: none;
+    font-size: 300px; opacity: 0.05;
+    color: var(--gold); pointer-events: none; z-index: 1;
+    animation: crossPulse 6s ease-in-out infinite;
+  }
+  @keyframes crossPulse {
+    0%, 100% { opacity: 0.03; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 0.07; transform: translate(-50%, -50%) scale(1.05); }
   }
 
   /* ====== GAME SCREEN ====== */
@@ -396,6 +466,29 @@
 
 <!-- WAITING SCREEN -->
 <div class="waiting-screen" id="waitingScreen">
+  <!-- Animated background -->
+  <div class="waiting-bg">
+    <!-- Light rays -->
+    <div class="ray" style="--start:0deg;--dur:45s;--fade:7s;--peak:0.07"></div>
+    <div class="ray" style="--start:60deg;--dur:50s;--fade:9s;--peak:0.05"></div>
+    <div class="ray" style="--start:120deg;--dur:40s;--fade:6s;--peak:0.06"></div>
+    <div class="ray" style="--start:180deg;--dur:55s;--fade:8s;--peak:0.08"></div>
+    <div class="ray" style="--start:240deg;--dur:42s;--fade:7s;--peak:0.05"></div>
+    <div class="ray" style="--start:300deg;--dur:48s;--fade:10s;--peak:0.06"></div>
+    <!-- Floating particles -->
+    <div class="particle" style="left:8%;--size:24px;--dur:14s;--delay:0s;--peak:0.25">&#10016;</div>
+    <div class="particle" style="left:20%;--size:16px;--dur:18s;--delay:2s;--peak:0.2">&#10022;</div>
+    <div class="particle" style="left:35%;--size:20px;--dur:16s;--delay:5s;--peak:0.15">&#10016;</div>
+    <div class="particle" style="left:50%;--size:14px;--dur:20s;--delay:1s;--peak:0.2">&#10022;</div>
+    <div class="particle" style="left:65%;--size:22px;--dur:15s;--delay:7s;--peak:0.18">&#10016;</div>
+    <div class="particle" style="left:78%;--size:18px;--dur:17s;--delay:3s;--peak:0.22">&#10022;</div>
+    <div class="particle" style="left:90%;--size:16px;--dur:19s;--delay:9s;--peak:0.15">&#10016;</div>
+    <div class="particle" style="left:14%;--size:12px;--dur:22s;--delay:4s;--peak:0.18">&#10022;</div>
+    <div class="particle" style="left:42%;--size:26px;--dur:13s;--delay:6s;--peak:0.12">&#10016;</div>
+    <div class="particle" style="left:72%;--size:14px;--dur:21s;--delay:8s;--peak:0.2">&#10022;</div>
+  </div>
+  <!-- Glow ring behind title -->
+  <div class="waiting-glow"></div>
   <div class="cross-watermark">&cross;</div>
   <h1>Scripture Sequence</h1>
   <p>Waiting for the game to begin...</p>
