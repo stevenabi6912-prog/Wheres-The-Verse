@@ -10,15 +10,15 @@
   :root {
     --bg-deep: #070b1a;
     --bg-mid: #0d1333;
-    --gold: #d4a843;
+    --gold: #e8b84a;
     --gold-light: #f0d078;
     --gold-dark: #a07a20;
-    --tile-border: #2a4070;
+    --tile-border: #4a6aa0;
     --tile-front: #f5f0e1;
     --correct: #4caf50;
     --wrong: #e74c3c;
-    --text: #e8e4dc;
-    --text-dim: #6a7a9a;
+    --text: #f0ece4;
+    --text-dim: #8a9ab8;
     --player-active: #d4a843;
     --player-inactive: #3a4a6a;
     --bg-glow: rgba(30, 50, 100, 0.4);
@@ -173,26 +173,27 @@
 
   .tile-back {
     background: linear-gradient(145deg, color-mix(in srgb, var(--bg-deep) 30%, #1a2d55), var(--bg-deep));
-    border: 2px solid var(--tile-border);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+    border: 3px solid var(--tile-border);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
     overflow: hidden;
   }
   .tile-back::before {
     content: ''; position: absolute; inset: 6px;
-    border: 1px solid color-mix(in srgb, var(--gold) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
     border-radius: 8px;
   }
   .tile-back::after {
     content: '\2720';
     font-size: clamp(28px, 4vw, 56px);
-    color: color-mix(in srgb, var(--gold) 12%, transparent);
+    color: color-mix(in srgb, var(--gold) 30%, transparent);
   }
   .tile-number {
     position: absolute; top: 8px; left: 10px;
     font-size: clamp(16px, 2.2vw, 28px);
-    color: color-mix(in srgb, var(--gold) 35%, transparent);
+    color: var(--gold);
     font-weight: 800;
     font-family: 'Inter', sans-serif;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
   }
 
   .tile-front {
