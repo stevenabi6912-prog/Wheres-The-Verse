@@ -8,19 +8,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Lora:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg-deep: #070b1a;
-    --bg-mid: #0d1333;
-    --gold: #e8b84a;
-    --gold-light: #f0d078;
-    --gold-dark: #a07a20;
-    --tile-border: #4a6aa0;
-    --tile-front: #f5f0e1;
-    --correct: #4caf50;
-    --wrong: #e74c3c;
-    --text: #f0ece4;
-    --text-dim: #8a9ab8;
-    --player-active: #d4a843;
-    --player-inactive: #3a4a6a;
+    --bg-deep: #060a18;
+    --bg-mid: #0c1230;
+    --gold: #ffd060;
+    --gold-light: #ffe090;
+    --gold-dark: #c89020;
+    --tile-border: #7090d0;
+    --tile-front: #f8f4e8;
+    --correct: #5ccc5c;
+    --wrong: #f05050;
+    --text: #ffffff;
+    --text-dim: #b0c0e0;
+    --player-active: #ffd060;
+    --player-inactive: #4a5a80;
     --bg-glow: rgba(30, 50, 100, 0.4);
     --bg-warm: rgba(100, 60, 20, 0.15);
   }
@@ -177,12 +177,12 @@
     font-family: 'Playfair Display', serif;
     font-size: clamp(22px, 3vw, 40px); font-weight: 900;
     color: var(--gold);
-    text-shadow: 0 0 30px rgba(212, 168, 67, 0.25), 0 2px 8px rgba(0,0,0,0.4);
+    text-shadow: 0 0 40px color-mix(in srgb, var(--gold) 40%, transparent), 0 2px 8px rgba(0,0,0,0.5);
   }
   .verse-reference {
     font-family: 'Lora', serif;
     font-size: clamp(14px, 1.8vw, 24px);
-    color: var(--text-dim); font-style: italic;
+    color: var(--text); font-style: italic;
   }
 
   /* ====== TIMER BAR ====== */
@@ -242,28 +242,28 @@
   }
 
   .tile-back {
-    background: linear-gradient(145deg, color-mix(in srgb, var(--bg-deep) 30%, #1a2d55), var(--bg-deep));
-    border: 3px solid var(--tile-border);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--tile-border) 40%, var(--bg-deep)), var(--bg-deep));
+    border: 4px solid var(--tile-border);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6), inset 0 0 30px rgba(255,255,255,0.04);
     overflow: hidden;
   }
   .tile-back::before {
     content: ''; position: absolute; inset: 6px;
-    border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
+    border: 2px solid color-mix(in srgb, var(--gold) 60%, transparent);
     border-radius: 8px;
   }
   .tile-back::after {
     content: '\2720';
     font-size: clamp(28px, 4vw, 56px);
-    color: color-mix(in srgb, var(--gold) 30%, transparent);
+    color: color-mix(in srgb, var(--gold) 50%, transparent);
   }
   .tile-number {
     position: absolute; top: 8px; left: 10px;
-    font-size: clamp(16px, 2.2vw, 28px);
-    color: var(--gold);
-    font-weight: 800;
+    font-size: clamp(18px, 2.5vw, 32px);
+    color: var(--gold-light);
+    font-weight: 900;
     font-family: 'Inter', sans-serif;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    text-shadow: 0 0 8px rgba(0,0,0,0.9), 0 0 20px color-mix(in srgb, var(--gold) 40%, transparent);
   }
 
   .tile-front {
@@ -343,9 +343,9 @@
     animation: wordAppear 0.4s ease;
   }
   .fw-word.blank {
-    background: rgba(30, 58, 95, 0.4);
+    background: rgba(30, 58, 95, 0.5);
     color: var(--text-dim);
-    border: 1px solid rgba(42, 64, 112, 0.3);
+    border: 1px solid rgba(80, 120, 180, 0.4);
     min-width: 45px;
   }
   .fw-word.blank::after { content: '\00B7\00B7\00B7\00B7'; }
@@ -363,14 +363,14 @@
   .player-panel {
     display: flex; align-items: center; gap: 14px;
     padding: 8px 20px; border-radius: 12px;
-    border: 2px solid var(--player-inactive);
-    background: rgba(15, 25, 50, 0.6);
+    border: 3px solid var(--player-inactive);
+    background: rgba(15, 25, 50, 0.7);
     transition: all 0.4s ease; min-width: 180px;
   }
   .player-panel.active {
     border-color: var(--player-active);
-    background: color-mix(in srgb, var(--player-active) 8%, transparent);
-    box-shadow: 0 0 20px color-mix(in srgb, var(--player-active) 15%, transparent);
+    background: color-mix(in srgb, var(--player-active) 15%, transparent);
+    box-shadow: 0 0 30px color-mix(in srgb, var(--player-active) 30%, transparent);
   }
   .player-indicator {
     width: 12px; height: 12px; border-radius: 50%;
