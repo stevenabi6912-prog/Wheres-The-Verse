@@ -134,11 +134,43 @@
   @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
 
   .key-hint { position: absolute; bottom: 3px; right: 6px; font-size: 9px; color: #7788aa; font-weight: 400; }
+
+  /* ====== WHO GOES FIRST MODAL ====== */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #16213e; border: 2px solid #d4a843; border-radius: 14px;
+    padding: 28px 36px; text-align: center; min-width: 320px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  }
+  .modal h3 { color: #d4a843; font-size: 20px; margin-bottom: 20px; }
+  .modal .pick-btns { display: flex; gap: 16px; justify-content: center; }
+  .modal .pick-btn {
+    padding: 14px 28px; border: 2px solid #2d6aa5; border-radius: 10px;
+    background: #0f3460; color: #ffffff; font-size: 16px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; min-width: 140px;
+  }
+  .modal .pick-btn:hover { border-color: #d4a843; background: #1a4a80; transform: translateY(-2px); }
+  .modal .pick-btn:active { transform: translateY(0); }
 </style>
 </head>
 <body>
 
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- WHO GOES FIRST MODAL -->
+<div class="modal-overlay" id="firstPickModal">
+  <div class="modal">
+    <h3>Who Goes First?</h3>
+    <div class="pick-btns">
+      <button class="pick-btn" id="pickPlayer1" onclick="pickFirst(0)">Player 1</button>
+      <button class="pick-btn" id="pickPlayer2" onclick="pickFirst(1)">Player 2</button>
+    </div>
+  </div>
+</div>
 
 <div class="top-bar">
   <h1>Scripture Sequence</h1>
@@ -778,6 +810,36 @@ function startRound() {
   const verse = verses.find(v => v.id === verseId);
   if (!verse) return toast('Please select a verse first.', 'error');
 
+  const mode = document.getElementById('gameMode').value;
+  const isSolo = mode === 'solo';
+
+  // Store pending round setup
+  gameState._pendingVerse = verse;
+  gameState._pendingMode = mode;
+
+  if (isSolo) {
+    // Solo: skip the popup, go straight
+    launchRound(0);
+  } else {
+    // 2-player: show "Who goes first?" popup with actual player names
+    const p1Name = document.getElementById('player1Name').value || 'Player 1';
+    const p2Name = document.getElementById('player2Name').value || 'Player 2';
+    document.getElementById('pickPlayer1').textContent = p1Name;
+    document.getElementById('pickPlayer2').textContent = p2Name;
+    document.getElementById('firstPickModal').classList.add('active');
+  }
+}
+
+function pickFirst(playerIndex) {
+  document.getElementById('firstPickModal').classList.remove('active');
+  launchRound(playerIndex);
+}
+
+function launchRound(firstPlayer) {
+  const verse = gameState._pendingVerse;
+  const mode = gameState._pendingMode;
+  const isSolo = mode === 'solo';
+
   const words = verse.text.split(/\s+/).filter(w => w);
   const { rows, cols } = getGridDimensions(words.length);
 
@@ -793,9 +855,6 @@ function startRound() {
     state: 'hidden'
   }));
 
-  const mode = document.getElementById('gameMode').value;
-  const isSolo = mode === 'solo';
-
   gameState.phase = 'playing';
   gameState.mode = mode;
   gameState.verse = verse;
@@ -805,7 +864,7 @@ function startRound() {
   gameState.gridCols = cols;
   gameState.currentWordIndex = 0;
   gameState.foundWords = [];
-  gameState.currentPlayerIndex = 0;
+  gameState.currentPlayerIndex = firstPlayer;
   gameState.locked = false;
   gameState.lastAction = null;
   gameState.wrongResetTimeout = null;
