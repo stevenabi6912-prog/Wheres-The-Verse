@@ -562,13 +562,25 @@ function timerExpired() {
   if (gameState.mode === 'solo') return; // Solo uses stopwatch, no expiry
   SoundEngine.wrong();
 
-  // 2-player/race mode: reset tiles and switch player
-  gameState.tiles.forEach(t => {
-    if (t.state === 'found') t.state = 'hidden';
-  });
-  gameState.foundWords = [];
-  gameState.currentWordIndex = 0;
+  const isRace = gameState.mode === 'race';
+
+  if (isRace) {
+    // Race: found tiles and progress stay, just switch player
+  } else {
+    // Classic: deduct points earned this turn, then reset tiles
+    if (gameState.turnPointsEarned > 0) {
+      gameState.players[gameState.currentPlayerIndex].score = Math.max(0,
+        gameState.players[gameState.currentPlayerIndex].score - gameState.turnPointsEarned);
+    }
+    gameState.tiles.forEach(t => {
+      if (t.state === 'found') t.state = 'hidden';
+    });
+    gameState.foundWords = [];
+    gameState.currentWordIndex = 0;
+  }
+
   gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % 2;
+  gameState.turnPointsEarned = 0;
   gameState.lastAction = null;
   hideUndoBtn();
   renderGame();
@@ -797,6 +809,7 @@ function startRound() {
   gameState.locked = false;
   gameState.lastAction = null;
   gameState.wrongResetTimeout = null;
+  gameState.turnPointsEarned = 0;
   gameState.players[0].name = document.getElementById('player1Name').value || (isSolo ? 'Player' : 'Player 1');
   gameState.players[1].name = isSolo ? '' : (document.getElementById('player2Name').value || 'Player 2');
 
@@ -833,14 +846,28 @@ function resetGame() {
 function passTurn() {
   if (gameState.phase !== 'playing' || gameState.locked) return;
   stopTurnTimer();
-  gameState.tiles.forEach(t => { if (t.state === 'found') t.state = 'hidden'; });
-  gameState.foundWords = [];
-  gameState.currentWordIndex = 0;
+  const isRace = gameState.mode === 'race';
+
+  if (isRace) {
+    // Race: found tiles and word index stay, just switch player
+    // (no tile reset, no progress reset)
+  } else {
+    // Classic: reset tiles and word index, and remove points earned this turn
+    const pointsThisTurn = gameState.foundWords.length;
+    if (pointsThisTurn > 0) {
+      gameState.players[gameState.currentPlayerIndex].score = Math.max(0,
+        gameState.players[gameState.currentPlayerIndex].score - pointsThisTurn);
+    }
+    gameState.tiles.forEach(t => { if (t.state === 'found') t.state = 'hidden'; });
+    gameState.foundWords = [];
+    gameState.currentWordIndex = 0;
+  }
+
   gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % 2;
   gameState.lastAction = null;
   hideUndoBtn();
   renderGame();
-  channel.postMessage({ type: 'reset_tiles', state: getDisplayState() });
+  channel.postMessage({ type: isRace ? 'sync' : 'reset_tiles', state: getDisplayState() });
   channel.postMessage({ type: 'timer_stop' });
   toast(`Passed to ${gameState.players[gameState.currentPlayerIndex].name}`, 'info');
   startTurnTimer();
@@ -869,9 +896,10 @@ function onTileClick(tileId) {
     SoundEngine.correct();
     showUndoBtn();
 
-    // Every correct word = 1 point for current player (all modes)
+    // Every correct word = 1 point for current player (all 2-player modes)
     if (!isSolo) {
       gameState.players[gameState.currentPlayerIndex].score++;
+      gameState.turnPointsEarned++;
     }
 
     if (gameState.currentWordIndex >= gameState.words.length) {
@@ -910,6 +938,7 @@ function onTileClick(tileId) {
         // Only flip back the wrong tile, keep found tiles
         tile.state = 'hidden';
         gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % 2;
+        gameState.turnPointsEarned = 0;
         gameState.locked = false;
         gameState.lastAction = null;
         gameState.wrongResetTimeout = null;
@@ -919,15 +948,21 @@ function onTileClick(tileId) {
         startTurnTimer();
       }, 1500);
     } else {
-      // CLASSIC / SOLO: reset all found tiles
+      // CLASSIC / SOLO: reset all found tiles and deduct turn points
       const resetDelay = isSolo ? 1000 : 2000;
       gameState.wrongResetTimeout = setTimeout(() => {
+        // Classic: remove points earned this turn (they didn't finish)
+        if (!isSolo && gameState.turnPointsEarned > 0) {
+          gameState.players[gameState.currentPlayerIndex].score = Math.max(0,
+            gameState.players[gameState.currentPlayerIndex].score - gameState.turnPointsEarned);
+        }
         gameState.tiles.forEach(t => {
           if (t.state === 'found' || t.state === 'revealed') t.state = 'hidden';
         });
         gameState.foundWords = [];
         gameState.currentWordIndex = 0;
         if (!isSolo) gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % 2;
+        gameState.turnPointsEarned = 0;
         gameState.locked = false;
         gameState.lastAction = null;
         gameState.wrongResetTimeout = null;
