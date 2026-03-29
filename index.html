@@ -1047,6 +1047,8 @@ function nextRound() {
   renderGame();
   channel.postMessage({ type: 'reset' });
   channel.postMessage({ type: 'timer_stop' });
+  // Immediately trigger start which shows "Who Goes First?" for 2-player
+  startRound();
 }
 
 // ============================================================
