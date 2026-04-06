@@ -743,12 +743,8 @@ function renderVerseSelect() {
 // ============================================================
 // WORD MATCHING — case-insensitive, ignore punctuation
 // ============================================================
-function normalizeWord(w) {
-  return w.toLowerCase().replace(/[^a-z0-9']/g, '');
-}
-
 function wordsMatch(a, b) {
-  return normalizeWord(a) === normalizeWord(b);
+  return a.toLowerCase() === b.toLowerCase();
 }
 
 // ============================================================
