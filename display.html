@@ -756,7 +756,12 @@ channel.onmessage = (e) => {
       displayState = msg.state;
       showWrongFlash();
       SoundEngine.wrong();
-      animateResetTiles();
+      if (displayState.mode === 'race') {
+        // Race: tiles stay, just switch player
+        updatePlayers();
+      } else {
+        animateResetTiles();
+      }
       if (displayState.mode !== 'solo') {
         showTurnFlash("Time's Up! " + displayState.players[displayState.currentPlayerIndex].name + "'s Turn");
       }
