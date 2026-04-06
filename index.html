@@ -741,13 +741,6 @@ function renderVerseSelect() {
 }
 
 // ============================================================
-// WORD MATCHING — case-insensitive, ignore punctuation
-// ============================================================
-function wordsMatch(a, b) {
-  return a.toLowerCase() === b.toLowerCase();
-}
-
-// ============================================================
 // GRID HELPERS
 // ============================================================
 function getGridDimensions(count) {
@@ -953,7 +946,7 @@ function onTileClick(tileId) {
   if (!isSolo) stopTurnTimer();
   const neededWord = gameState.words[gameState.currentWordIndex];
 
-  if (wordsMatch(tile.word, neededWord)) {
+  if (tile.word === neededWord) {
     // CORRECT
     gameState.lastAction = { type: 'correct', tileId: tile.id, prevWordIndex: gameState.currentWordIndex, prevScore: gameState.players[gameState.currentPlayerIndex].score };
     tile.state = 'found';
